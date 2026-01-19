@@ -570,57 +570,57 @@ const LiveMarketData = () => {
         {filteredLiveData.length > 0 ? (
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
+              <table className="w-full min-w-[900px] table-fixed">
                 <thead className="bg-gray-800 text-white">
                   <tr>
-                    <th className="p-3 text-left text-sm font-medium">MCX</th>
-                    <th className="p-3 text-center text-sm font-medium">Change(%)</th>
-                    <th className="p-3 text-center text-sm font-medium">Bid Rate</th>
-                    <th className="p-3 text-center text-sm font-medium">Ask Rate</th>
-                    <th className="p-3 text-center text-sm font-medium">LTP</th>
-                    <th className="p-3 text-center text-sm font-medium">Net Change</th>
-                    <th className="p-3 text-center text-sm font-medium">High</th>
-                    <th className="p-3 text-center text-sm font-medium">Low</th>
-                    <th className="p-3 text-center text-sm font-medium">Open</th>
-                    <th className="p-3 text-center text-sm font-medium">Close</th>
-                    <th className="p-3 text-center text-sm font-medium">Action</th>
+                    <th className="p-3 text-left text-sm font-medium w-[180px]">MCX</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">Change(%)</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">Bid Rate</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">Ask Rate</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">LTP</th>
+                    <th className="p-3 text-center text-sm font-medium w-[110px]">Net Change</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">High</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">Low</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">Open</th>
+                    <th className="p-3 text-center text-sm font-medium w-[100px]">Close</th>
+                    <th className="p-3 text-center text-sm font-medium w-[80px]">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLiveData.map((data, index) => (
                     <tr key={index} className="text-center border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-3 bg-white text-left font-medium text-gray-900">{data.ts || "N/A"}</td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(2) ? 'bg-yellow-100 border border-yellow-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'}`}>
                         {data.lp && data.c ? (((data.lp - data.c) / data.c) * 100).toFixed(2) : "N/A"}
                       </td>
                       <td
-                        className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(3) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'} cursor-pointer hover:bg-green-50 transition-colors`}
+                        className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(3) ? 'bg-green-100 border border-green-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} cursor-pointer hover:bg-green-50`}
                         onClick={() => openmodalhandle(data, 'bid')}
                       >
                         {data.bp1 || "N/A"}
                       </td>
                       <td
-                        className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(4) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'} cursor-pointer hover:bg-red-50 transition-colors`}
+                        className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(4) ? 'bg-red-100 border border-red-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} cursor-pointer hover:bg-red-50`}
                         onClick={() => openmodalhandle(data, 'ask')}
                       >
                         {data.sp1 || "N/A"}
                       </td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'} font-medium`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(2) ? 'bg-yellow-100 border border-yellow-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} font-medium`}>
                         {data.lp || "N/A"}
                       </td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(2) ? 'bg-yellow-100 border border-yellow-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'}`}>
                         {(data.lp - data.c).toFixed(2)}
                       </td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(5) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(5) ? 'bg-blue-100 border border-blue-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'}`}>
                         {data.h || "N/A"}
                       </td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(6) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(6) ? 'bg-purple-100 border border-purple-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'}`}>
                         {data.l || "N/A"}
                       </td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(7) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(7) ? 'bg-indigo-100 border border-indigo-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'}`}>
                         {data.o || "N/A"}
                       </td>
-                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(8) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                      <td className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(8) ? 'bg-teal-100 border border-teal-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'}`}>
                         {data.c || "N/A"}
                       </td>
                       <td className="py-3 px-3 bg-white">
@@ -651,32 +651,32 @@ const LiveMarketData = () => {
       {/* Order Modal - Using Dialog */}
       <Dialog open={ismodal} onOpenChange={setismodal}>
         <DialogContent className="sm:max-w-2xl w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto p-0">
-          <div className={`${sell ? 'bg-red-600' : 'bg-blue-600'} p-4 rounded-t-lg`}>
+          <div className={`${sell ? 'bg-red-50' : 'bg-green-50'} p-4 rounded-t-lg border-b-2 ${sell ? 'border-red-500' : 'border-green-500'}`}>
             <DialogHeader>
-              <DialogTitle className="text-white text-xl font-bold">{modalData?.ts}</DialogTitle>
+              <DialogTitle className="text-gray-900 text-xl font-bold">{modalData?.ts}</DialogTitle>
             </DialogHeader>
 
             {/* Live Data Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4">
-              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
-                <div className="text-xs font-medium opacity-80">BID</div>
-                <div className="text-lg font-bold">{modalData?.bp1 || "N/A"}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-4">
+              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg text-center shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 uppercase">BID</div>
+                <div className="text-lg font-bold mt-1 text-gray-900">{modalData?.bp1 || "N/A"}</div>
               </div>
-              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
-                <div className="text-xs font-medium opacity-80">ASK</div>
-                <div className="text-lg font-bold">{modalData?.sp1 || "N/A"}</div>
+              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg text-center shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 uppercase">ASK</div>
+                <div className="text-lg font-bold mt-1 text-gray-900">{modalData?.sp1 || "N/A"}</div>
               </div>
-              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
-                <div className="text-xs font-medium opacity-80">LTP</div>
-                <div className="text-lg font-bold">{modalData?.lp || "N/A"}</div>
+              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg text-center shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 uppercase">LTP</div>
+                <div className="text-lg font-bold mt-1 text-gray-900">{modalData?.lp || "N/A"}</div>
               </div>
-              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
-                <div className="text-xs font-medium opacity-80">HIGH</div>
-                <div className="text-lg font-bold">{modalData?.h || "N/A"}</div>
+              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg text-center shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 uppercase">HIGH</div>
+                <div className="text-lg font-bold mt-1 text-gray-900">{modalData?.h || "N/A"}</div>
               </div>
-              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
-                <div className="text-xs font-medium opacity-80">LOW</div>
-                <div className="text-lg font-bold">{modalData?.l || "N/A"}</div>
+              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg text-center shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 uppercase">LOW</div>
+                <div className="text-lg font-bold mt-1 text-gray-900">{modalData?.l || "N/A"}</div>
               </div>
             </div>
           </div>

@@ -96,6 +96,7 @@ const Dashboard = () => {
         </div>
 
         {/* Marquee Notice */}
+
         {/* <div className="flex-1 max-w-xl overflow-hidden rounded-lg bg-amber-50 border border-amber-200 px-4 py-2">
           <div className="marquee">
             <span className="text-amber-700 text-sm font-medium">
@@ -103,6 +104,7 @@ const Dashboard = () => {
             </span>
           </div>
         </div> */}
+
       </div>
 
       {/* Stats Cards Row */}
