@@ -1,0 +1,37 @@
+{
+  "name": "user",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "cleanup-orders": "node scripts/cleanupLimitOrders.js",
+    "setup-cron": "node scripts/setupCron.js",
+    "test-cleanup": "node scripts/testCleanup.js",
+    "test-restore": "node scripts/testRestore.js"
+  },
+  "dependencies": {
+    "@material-tailwind/react": "^2.1.10",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.8.1",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.7",
+    "gsap": "^3.12.7",
+    "module-alias": "^2.2.3",
+    "mongoose": "^8.10.1",
+    "next": "15.1.7",
+    "node-cron": "^3.0.3",
+    "node-schedule": "^2.1.1",
+    "otplib": "^12.0.1",
+    "react": "^19.0.0",
+    "react-datepicker": "^8.1.0",
+    "react-dom": "^19.0.0",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1"
+  }
+}
