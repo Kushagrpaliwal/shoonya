@@ -1,17 +1,24 @@
 // This stays as a server component
 import "./globals.css";
+import { Inter } from "next/font/google";
 import ClientProviders from "./components/ClientProviders";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata = {
-  title: "User Trading Panel",
-  description: "User Trading Panel",
+  title: "UrbanExchange",
+  description: "UrbanExchange Trading Platform",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <head />
-      <body className="bg-gray-100 text-gray-900" suppressHydrationWarning={true}>
+      <body className="font-sans bg-zinc-50 text-zinc-900 antialiased" suppressHydrationWarning={true}>
         <ClientProviders>
           {children}
         </ClientProviders>

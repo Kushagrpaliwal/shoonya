@@ -1,6 +1,17 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useWebSocket } from "@/app/lib/WebSocketContext";
+import { AlertModal } from "@/components/ui/alert-modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const mcxScripts = [
   "GOLD", "GOLDM", "SILVER", "SILVERM", "SILVERMIC", "ALUMINIUM",
@@ -32,23 +43,37 @@ const LiveMarketData = () => {
   const [buy, setbuy] = useState(false);
   const [sell, setsell] = useState(false);
   const [lotvalue, setlotvalue] = useState(0);
-  const [tradeDirection, setTradeDirection] = useState(""); // 'buy' or 'sell'
-  const [orderExecutionType, setOrderExecutionType] = useState("market"); // 'market' or 'limit'
-  const [limitPrice, setLimitPrice] = useState(0); // New state for limit price
-  const [highlightedCells, setHighlightedCells] = useState({}); // Local highlighting state
+  const [tradeDirection, setTradeDirection] = useState("");
+  const [orderExecutionType, setOrderExecutionType] = useState("market");
+  const [limitPrice, setLimitPrice] = useState(0);
+  const [highlightedCells, setHighlightedCells] = useState({});
   const previousLiveDataRef = useRef([]);
+
+  // Alert Modal State
+  const [alertModal, setAlertModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    variant: "info"
+  });
+
+  const showAlert = (title, message, variant = "info") => {
+    setAlertModal({ open: true, title, message, variant });
+  };
+
+  const closeAlert = () => {
+    setAlertModal(prev => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        setismodal(false); // Close the modal when Escape is pressed
+        setismodal(false);
       }
     };
 
-    // Add event listener for keydown
     window.addEventListener("keydown", handleKeyDown);
 
-    // Cleanup the event listener on component unmount
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -62,17 +87,15 @@ const LiveMarketData = () => {
           const previousData = previousLiveDataRef.current.find(item => item.tk === data.tk);
           const updatedCells = [];
 
-          // Compare each field with previous value and highlight only changed cells
           if (previousData) {
-            if (data.lp !== previousData.lp) updatedCells.push(2); // LTP changed
-            if (data.bp1 !== previousData.bp1) updatedCells.push(3); // Bid Rate changed
-            if (data.sp1 !== previousData.sp1) updatedCells.push(4); // Ask Rate changed
-            if (data.h !== previousData.h) updatedCells.push(5); // High changed
-            if (data.l !== previousData.l) updatedCells.push(6); // Low changed
-            if (data.o !== previousData.o) updatedCells.push(7); // Open changed
-            if (data.c !== previousData.c) updatedCells.push(8); // Close changed
+            if (data.lp !== previousData.lp) updatedCells.push(2);
+            if (data.bp1 !== previousData.bp1) updatedCells.push(3);
+            if (data.sp1 !== previousData.sp1) updatedCells.push(4);
+            if (data.h !== previousData.h) updatedCells.push(5);
+            if (data.l !== previousData.l) updatedCells.push(6);
+            if (data.o !== previousData.o) updatedCells.push(7);
+            if (data.c !== previousData.c) updatedCells.push(8);
           } else {
-            // If no previous data, highlight all cells for new data
             if (data.lp) updatedCells.push(2);
             if (data.bp1) updatedCells.push(3);
             if (data.sp1) updatedCells.push(4);
@@ -88,7 +111,6 @@ const LiveMarketData = () => {
               [data.tk]: updatedCells
             }));
 
-            // Clear highlighting after 1 second
             setTimeout(() => {
               setHighlightedCells(prev => ({
                 ...prev,
@@ -99,7 +121,6 @@ const LiveMarketData = () => {
         }
       });
 
-      // Update the previous data reference
       previousLiveDataRef.current = [...liveData];
     }
   }, [liveData]);
@@ -108,7 +129,7 @@ const LiveMarketData = () => {
     const fetchTrades = async () => {
       const email = localStorage.getItem('TradingUserEmail');
       if (!email) {
-        setError("User  email not found. Please log in again.");
+        setError("User email not found. Please log in again.");
         return;
       }
 
@@ -176,7 +197,7 @@ const LiveMarketData = () => {
       setFetchedData(data);
 
       const expiryList = data.filter((item) => item.script === script).map((item) => item.Expiry);
-      setExpiryOptions([...new Set(expiryList)]); // Remove duplicates
+      setExpiryOptions([...new Set(expiryList)]);
     } catch (error) {
       console.error("Error fetching expiry options:", error);
       setError("Failed to fetch expiry options. Please try again.");
@@ -189,7 +210,7 @@ const LiveMarketData = () => {
 
   const addToWatchlist = async () => {
     if (!selectedScript || !selectedExpiry) {
-      alert("Please select both a script and an expiry date.");
+      showAlert("Missing Selection", "Please select both a script and an expiry date.", "warning");
       return;
     }
 
@@ -198,7 +219,7 @@ const LiveMarketData = () => {
     );
 
     if (!selectedItem) {
-      alert("Selected instrument not found.");
+      showAlert("Not Found", "Selected instrument not found.", "error");
       return;
     }
 
@@ -252,10 +273,10 @@ const LiveMarketData = () => {
         subscribe(instrumentsString, "depth");
         console.log("Subscribing to Depth:", instrumentsString);
       } else {
-        alert("Your watchlist is empty. Please add items to the watchlist first.");
+        showAlert("Empty Watchlist", "Your watchlist is empty. Please add items to the watchlist first.", "warning");
       }
     } else {
-      alert("WebSocket is not connected. Please wait for the connection to be established.");
+      showAlert("Not Connected", "WebSocket is not connected. Please wait for the connection to be established.", "warning");
     }
   };
 
@@ -284,7 +305,7 @@ const LiveMarketData = () => {
 
     const email = localStorage.getItem('TradingUserEmail');
     if (!email) {
-      setError("User  email not found. Please log in again.");
+      setError("User email not found. Please log in again.");
       return;
     }
 
@@ -319,16 +340,15 @@ const LiveMarketData = () => {
   };
 
   const openmodalhandle = (data, type) => {
-    setModalData(data); // Set the data for the modal
+    setModalData(data);
     setismodal(true);
 
-    // Set trade direction based on the type of rate clicked
     if (type === 'ask') {
-      setTradeDirection('buy'); // Set to buy when Ask Rate is clicked
+      setTradeDirection('buy');
       setbuy(true);
       setsell(false);
     } else if (type === 'bid') {
-      setTradeDirection('sell'); // Set to sell when Bid Rate is clicked
+      setTradeDirection('sell');
       setsell(true);
       setbuy(false);
     }
@@ -336,7 +356,7 @@ const LiveMarketData = () => {
 
   const closemodalhandle = () => {
     setismodal(false);
-    setModalData(null); // Clear modal data when closing
+    setModalData(null);
   };
 
   const buyinput = () => {
@@ -355,47 +375,42 @@ const LiveMarketData = () => {
     setlotvalue(e.target.value);
   };
 
-  // Function to get lot size based on script type
   const getLotSize = (scriptName) => {
     if (scriptName && scriptName.includes('GOLDM')) {
-      return 10; // GOLDM scripts: 1 lot = 10
+      return 10;
     } else if (scriptName && scriptName.includes('GOLD')) {
-      return 100; // GOLD scripts: 1 lot = 100
+      return 100;
     } else {
-      return modalData?.ls; // Use original lot size for other scripts
+      return modalData?.ls;
     }
   };
 
-  // Function to calculate quantity based on script type and lot value
   const calculateQuantity = (scriptName, lotValue) => {
     if (scriptName && (scriptName.includes('GOLD') || scriptName.includes('GOLDM'))) {
-      // For GOLD and GOLDM scripts, use custom lot size
       const lotSize = getLotSize(scriptName);
       return lotSize * lotValue;
     } else {
-      // For other scripts, use original calculation (modalData.ls * lotvalue)
       return (modalData?.ls) * lotValue;
     }
   };
 
   const placeOrder = async () => {
     if (!tradeDirection) {
-      alert("Please select Buy or Sell first");
+      showAlert("Select Direction", "Please select Buy or Sell first", "warning");
       return;
     }
 
     const selectedPrice = orderExecutionType === "Limit"
-      ? Number(limitPrice) // Use the inputted limit price
-      : (buy ? modalData.bp1 : modalData.sp1); // Use live feed price
+      ? Number(limitPrice)
+      : (buy ? modalData.bp1 : modalData.sp1);
 
-    // Calculate quantity using the new lot size logic
     const quantity = calculateQuantity(modalData.ts, lotvalue);
 
     const orderData = {
       email: localStorage.getItem('TradingUserEmail'),
       direction: tradeDirection,
       executionType: orderExecutionType.toLowerCase(),
-      lot: Number(lotvalue), // Keep this for lot size
+      lot: Number(lotvalue),
       price: selectedPrice,
       quantity: Number(quantity),
       market: modalData.e,
@@ -420,12 +435,12 @@ const LiveMarketData = () => {
       }
 
       const result = await response.json();
-      alert("Order Placed Successfully");
+      showAlert("Order Placed", "Order Placed Successfully", "success");
       console.log("Order placed successfully:", result.message);
 
       // Reset form
-      setLimitPrice(0); // Reset limit price
-      setlotvalue(0); // Reset lot size
+      setLimitPrice(0);
+      setlotvalue(0);
       setTradeDirection("");
       setOrderExecutionType("market");
       setbuy(false);
@@ -434,7 +449,7 @@ const LiveMarketData = () => {
 
     } catch (error) {
       console.error("Error placing order:", error);
-      alert(`Order failed: ${error.message}`);
+      showAlert("Order Failed", `Order failed: ${error.message}`, "error");
     }
   };
 
@@ -443,340 +458,342 @@ const LiveMarketData = () => {
   );
 
   return (
-    <div className="p-4" key={refreshKey}>
-      <div className="flex items-center space-x-2 bg-white shadow-md rounded-lg p-3">
-        <span className="font-black text-xl w-[160px]">Market Watch</span>
-        <div className="marquee">
-          <span className="text-red-600">
-            Money involved. This is a Virtual Trading Application which has all
-            the features to trade. This application is used for exchanging views
-            on markets for India{" "}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-row p-4 gap-6 bg-[#2B3F54] mb-2 rounded-lg mt-2">
-        <div className="flex flex-col">
-          <label htmlFor="marketDropdown" className="ml-2 mb-1 text-white">Market</label>
-          <select id="marketDropdown" value={selectedType} onChange={handleTypeChange} className="p-2 rounded-lg">
-            <option value="">Select an option</option>
-            <option value="option1">INDEX</option>
-            <option value="mcx">MCX</option>
-          </select>
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="scriptDropdown" className="ml-2 mb-1 text-white">Script Name</label>
-          <select id="scriptDropdown" value={selectedScript} onChange={handleScriptChange} className="p-2 rounded-lg">
-            <option value="">Select an option</option>
-            {selectedType === "mcx" ? (
-              mcxScripts.map((script, index) => (
-                <option key={index} value={script}>
-                  {script}
-                </option>
-              ))
-            ) : (
-              <option value="">No MCX scripts available</option>
-            )}
-          </select>
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="expiryDropdown" className="ml-2 mb-1 text-white">Expiry Date</label>
-          <select id="expiryDropdown" value={selectedExpiry} onChange={handleExpiryChange} className="p-2 rounded-lg">
-            <option value="">Select an option</option>
-            {expiryOptions.length > 0 ? (
-              expiryOptions.map((expiry, index) => (
-                <option key={index} value={expiry}>
-                  {expiry}
-                </option>
-              ))
-            ) : (
-              <option value="">No expiry options available</option>
-            )}
-          </select>
-        </div>
-        <div className="flex justify-center items-end gap-4">
-          <button
-            className="flex justify-center items-center bg-white text-black w-[120px] h-[40px] font-semibold text-sm border-b-2 border-orange-400 rounded-sm"
-            onClick={addToWatchlist}
-          >
-            Add to Watchlist
-          </button>
-          {/* <button
-            className="flex justify-center items-center bg-white text-black w-[120px] h-[40px] font-semibold text-sm border-b-2 border-orange-400 rounded-sm"
-            onClick={showLiveFeed}
-          >
-            Show Live Feed
-          </button> */}
-          <button
-            className="flex justify-center items-center bg-white text-black w-[120px] h-[40px] font-semibold text-sm border-b-2 border-orange-400 rounded-sm"
-            onClick={() => window.location.reload()}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {(error || wsError) && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error || wsError}
-        </div>
-      )}
-
-      <div className={`px-4 py-2 mb-4 rounded ${isConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-        Status: {isConnected ? "Connected" : "Connecting to market data..."}
-      </div>
-
-      {/* <div className="italic">
-      bid - buy , 
-      ask - sell
-  </div> */}
-
-      {filteredLiveData.length > 0 ? (
-        <table className="w-full">
-          <thead className="bg-[#2B3F54] text-white">
-            <tr>
-              <th className="p-2">MCX</th>
-              <th>Change(%)</th>
-              <th>Bid Rate</th>
-              <th>Ask Rate</th>
-              <th>LTP</th>
-              <th>Net Change</th>
-              <th>High</th>
-              <th>Low</th>
-              <th>Open</th>
-              <th>Close</th>
-              <th>Remove</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLiveData.map((data, index) => (
-              <tr key={index} className="text-center font-thin">
-                <td className="py-2 px-2 bg-white">{data.ts || "N/A"}</td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {data.lp && data.c ? (((data.lp - data.c) / data.c) * 100).toFixed(2) : "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(3) ? 'bg-blue-500 text-white' : 'bg-white text-black'} cursor-pointer`} onClick={() => openmodalhandle(data, 'bid')}>
-                  {data.bp1 || "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(4) ? 'bg-blue-500 text-white' : 'bg-white text-black'} cursor-pointer`} onClick={() => openmodalhandle(data, 'ask')}>
-                  {data.sp1 || "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {data.lp || "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {(data.lp - data.c).toFixed(2)}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(5) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {data.h || "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(6) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {data.l || "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(7) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {data.o || "N/A"}
-                </td>
-                <td className={`py-2 px-2 ${highlightedCells[data.tk]?.includes(8) ? 'bg-blue-500 text-white' : 'bg-white text-black'}`}>
-                  {data.c || "N/A"}
-                </td>
-                <td className="px-2 py-2 flex justify-center items-center ">
-                  <button
-                    className="flex justify-center items-center bg-black text-black w-[40px] h-[40px] font-semibold text-sm rounded-md "
-                    onClick={() => handleRemoveItem(data.ts, data.tk)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="white" className="size-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No data available</p>
-      )}
-
-      {/* <button onClick={unsubscribeFromWebSocket} className="mt-4 bg-red-500 text-white rounded px-4 py-2">
-        Unsubscribe
-      </button> */}
-
-      {ismodal && modalData && (
-        <div className="fixed bottom-0 left-0 right-0 z-50">
-          <div className={`w-xl mx-auto ${sell ? 'bg-red-600' : 'bg-blue-400'} p-4 pb-[40px] shadow-lg`}>
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-white font-bold text-lg ml-[50px]">{modalData.ts}</div>
-              <div className="flex space-x-1 p-1 rounded-md bg-black">
-                <div className="bg-red-600 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">BID RATE</div>
-                  <div className="text-lg">{modalData.bp1 || "N/A"}</div>
-                </div>
-                <div className="bg-red-600 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">ASK RATE</div>
-                  <div className="text-lg">{modalData.sp1 || "N/A"}</div>
-                </div>
-                <div className="bg-red-600 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">LTP</div>
-                  <div className="text-lg">{modalData.lp || "N/A"}</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">VOLUME</div>
-                  <div className="text-lg">0.00</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">CHANGE %</div>
-                  <div className="text-lg">{(((modalData.lp - modalData.c) / modalData.c) * 100).toFixed(2)}</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">NET CHG</div>
-                  <div className="text-lg flex items-center">
-                    <i className="fas fa-arrow-up text-green-500 mr-1"></i>{(modalData.lp - modalData.c).toFixed(2)}</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">HIGH</div>
-                  <div className="text-lg">{modalData.h || "N/A"}</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">LOW</div>
-                  <div className="text-lg">{modalData.l || "N/A"}</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">OPEN</div>
-                  <div className="text-lg">{modalData.o || "N/A"}</div>
-                </div>
-                <div className="bg-gray-700 text-white p-2 rounded-md text-center">
-                  <div className="text-sm font-bold">CLOSE</div>
-                  <div className="text-lg">{modalData.c || "N/A"}</div>
-                </div>
+    <>
+      <div className="p-2 md:p-4 bg-gray-50 min-h-screen" key={refreshKey}>
+        {/* Header */}
+        <Card className="mb-4 bg-white shadow-sm">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-2">
+              <span className="font-bold text-lg md:text-xl text-gray-900">Market Watch</span>
+              <div className="marquee flex-1 overflow-hidden">
+                <span className="text-red-600 text-sm">
+                  Money involved. This is a Virtual Trading Application which has all
+                  the features to trade. This application is used for exchanging views
+                  on markets for India
+                </span>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex flex-row gap-4 ml-[50px]">
-
-              <div className="flex flex-col">
-                <div className="flex flex-row items-center">
-                  <label className="flex items-center mr-4 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="tradeType"
-                      value="buy"
-                      className="mr-1"
-                      checked={buy}
-                      onChange={() => {
-                        setTradeDirection("buy");
-                        setbuy(true);
-                        setsell(false);
-                      }} // Update state on change
-                    />
-                    <span className="text-white">Buy</span>
-                  </label>
-
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="radio"
-                      name="tradeType"
-                      value="sell"
-                      className="mr-1"
-                      checked={sell}
-                      onChange={() => {
-                        setTradeDirection("sell");
-                        setsell(true);
-                        setbuy(false);
-                      }} // Update state on change
-                    />
-                    <span className="text-white">Sell</span>
-                  </label>
-                </div>
-
-                <div className="mt-1">
-                  <select className="w-[150px] h-[32px] rounded-sm" onChange={(e) => setOrderExecutionType(e.target.value)}>
-                    <option>Select the options</option>
-                    <option>Market</option>
-                    <option>Limit</option>
-                  </select>
-                </div>
+        {/* Filter Section */}
+        <Card className="mb-4 bg-gray-800 shadow-md">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="marketDropdown" className="text-white text-sm font-medium">Market</Label>
+                <select
+                  id="marketDropdown"
+                  value={selectedType}
+                  onChange={handleTypeChange}
+                  className="w-full h-11 px-3 rounded-lg bg-white border-0 text-gray-900 focus:ring-2 focus:ring-gray-400"
+                >
+                  <option value="">Select an option</option>
+                  <option value="option1">INDEX</option>
+                  <option value="mcx">MCX</option>
+                </select>
               </div>
-
-              <div className="flex flex-col">
-                <div className="flex flex-row w-full text-center items-end justify-center text-white">
-                  <p>Lot</p>
-                </div>
-                <div className="mt-1">
-                  <input
-                    className="p-1 w-[80px]"
-                    value={lotvalue}
-                    onChange={handlelotChange}
-                  />
-                </div>
-                {/* <div className="text-white text-xs text-center mt-1">
-              {modalData && modalData.ts ? (
-                <>
-                  {modalData.ts.includes('GOLDM') ? '1 Lot = 10' : 
-                   modalData.ts.includes('GOLD') ? '1 Lot = 100' : 
-                   `1 Lot = ${modalData.ls}`}
-                </>
-              ) : 'Select script'}
-            </div> */}
-              </div>
-
-              <div className="flex flex-col">
-                <div className="flex flex-row w-full text-center items-end justify-center text-white">
-                  <p>Qty</p>
-                </div>
-                <div className="mt-1">
-                  <input
-                    type="number"
-                    className="p-1 w-[150px] bg-white text-black"
-                    disabled
-                    value={calculateQuantity(modalData.ts, lotvalue)}
-                  />
-                </div>
-                {/* <div className="flex flex-row text-white text-sm">
-                <div className="mr-10">Max: 0</div>
-                <div className="">position: 0</div>
-            </div> */}
-
-              </div>
-
-              <div className="flex flex-col">
-                <div className="flex flex-row w-full text-center items-end justify-center text-white">
-                  <p>Price</p>
-                </div>
-                <div className="mt-1">
-                  {orderExecutionType === "Limit" ? (
-                    <input
-                      placeholder="Enter price"
-                      className="p-1 w-[150px] bg-white"
-                      value={limitPrice} // Bind to the new limit price state
-                      onChange={(e) => setLimitPrice(e.target.value)} // Update the state with the input value
-                    />
+              <div className="space-y-2">
+                <Label htmlFor="scriptDropdown" className="text-white text-sm font-medium">Script Name</Label>
+                <select
+                  id="scriptDropdown"
+                  value={selectedScript}
+                  onChange={handleScriptChange}
+                  className="w-full h-11 px-3 rounded-lg bg-white border-0 text-gray-900 focus:ring-2 focus:ring-gray-400"
+                >
+                  <option value="">Select an option</option>
+                  {selectedType === "mcx" ? (
+                    mcxScripts.map((script, index) => (
+                      <option key={index} value={script}>
+                        {script}
+                      </option>
+                    ))
                   ) : (
-                    <input
-                      className="p-1 w-[150px] bg-white"
-                      value={buy ? `${modalData.sp1}` : `${modalData.bp1}`}
-                      disabled
-                    />
+                    <option value="">No MCX scripts available</option>
                   )}
-                </div>
+                </select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="expiryDropdown" className="text-white text-sm font-medium">Expiry Date</Label>
+                <select
+                  id="expiryDropdown"
+                  value={selectedExpiry}
+                  onChange={handleExpiryChange}
+                  className="w-full h-11 px-3 rounded-lg bg-white border-0 text-gray-900 focus:ring-2 focus:ring-gray-400"
+                >
+                  <option value="">Select an option</option>
+                  {expiryOptions.length > 0 ? (
+                    expiryOptions.map((expiry, index) => (
+                      <option key={index} value={expiry}>
+                        {expiry}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No expiry options available</option>
+                  )}
+                </select>
+              </div>
+              <div className="flex items-end gap-2">
+                <Button
+                  onClick={addToWatchlist}
+                  className="flex-1 h-11 bg-white text-gray-900 hover:bg-gray-100 font-medium"
+                >
+                  Add to Watchlist
+                </Button>
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  className="h-11 bg-white text-gray-900 hover:bg-gray-100 border-0"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="flex flex-col mt-4">
-                <button className="bg-white rounded-sm p-2 text-sm font-semibold border-4 border-b-green-500" onClick={placeOrder}>
-                  Place Order
-                </button>
+        {/* Error Display */}
+        {(error || wsError) && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+            {error || wsError}
+          </div>
+        )}
+
+        {/* Connection Status */}
+        <div className={`px-4 py-2 mb-4 rounded-lg text-sm font-medium ${isConnected ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+          Status: {isConnected ? "Connected" : "Connecting to market data..."}
+        </div>
+
+        {/* Data Table */}
+        {filteredLiveData.length > 0 ? (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-gray-800 text-white">
+                  <tr>
+                    <th className="p-3 text-left text-sm font-medium">MCX</th>
+                    <th className="p-3 text-center text-sm font-medium">Change(%)</th>
+                    <th className="p-3 text-center text-sm font-medium">Bid Rate</th>
+                    <th className="p-3 text-center text-sm font-medium">Ask Rate</th>
+                    <th className="p-3 text-center text-sm font-medium">LTP</th>
+                    <th className="p-3 text-center text-sm font-medium">Net Change</th>
+                    <th className="p-3 text-center text-sm font-medium">High</th>
+                    <th className="p-3 text-center text-sm font-medium">Low</th>
+                    <th className="p-3 text-center text-sm font-medium">Open</th>
+                    <th className="p-3 text-center text-sm font-medium">Close</th>
+                    <th className="p-3 text-center text-sm font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLiveData.map((data, index) => (
+                    <tr key={index} className="text-center border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-3 bg-white text-left font-medium text-gray-900">{data.ts || "N/A"}</td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                        {data.lp && data.c ? (((data.lp - data.c) / data.c) * 100).toFixed(2) : "N/A"}
+                      </td>
+                      <td
+                        className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(3) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'} cursor-pointer hover:bg-green-50 transition-colors`}
+                        onClick={() => openmodalhandle(data, 'bid')}
+                      >
+                        {data.bp1 || "N/A"}
+                      </td>
+                      <td
+                        className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(4) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'} cursor-pointer hover:bg-red-50 transition-colors`}
+                        onClick={() => openmodalhandle(data, 'ask')}
+                      >
+                        {data.sp1 || "N/A"}
+                      </td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'} font-medium`}>
+                        {data.lp || "N/A"}
+                      </td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(2) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                        {(data.lp - data.c).toFixed(2)}
+                      </td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(5) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                        {data.h || "N/A"}
+                      </td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(6) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                        {data.l || "N/A"}
+                      </td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(7) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                        {data.o || "N/A"}
+                      </td>
+                      <td className={`py-3 px-3 ${highlightedCells[data.tk]?.includes(8) ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}>
+                        {data.c || "N/A"}
+                      </td>
+                      <td className="py-3 px-3 bg-white">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveItem(data.ts, data.tk)}
+                          className="h-9 w-9 p-0 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-8 text-center">
+            <p className="text-gray-500">No data available. Add instruments to your watchlist.</p>
+          </Card>
+        )}
+      </div>
+
+      {/* Order Modal - Using Dialog */}
+      <Dialog open={ismodal} onOpenChange={setismodal}>
+        <DialogContent className="sm:max-w-2xl w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto p-0">
+          <div className={`${sell ? 'bg-red-600' : 'bg-blue-600'} p-4 rounded-t-lg`}>
+            <DialogHeader>
+              <DialogTitle className="text-white text-xl font-bold">{modalData?.ts}</DialogTitle>
+            </DialogHeader>
+
+            {/* Live Data Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-4">
+              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
+                <div className="text-xs font-medium opacity-80">BID</div>
+                <div className="text-lg font-bold">{modalData?.bp1 || "N/A"}</div>
               </div>
-              <div className="flex flex-col mt-4">
-                <button className="bg-white rounded-sm p-2 px-6 text-sm font-semibold border-4 border-b-red-400" onClick={closemodalhandle}>
-                  Close
-                </button>
+              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
+                <div className="text-xs font-medium opacity-80">ASK</div>
+                <div className="text-lg font-bold">{modalData?.sp1 || "N/A"}</div>
+              </div>
+              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
+                <div className="text-xs font-medium opacity-80">LTP</div>
+                <div className="text-lg font-bold">{modalData?.lp || "N/A"}</div>
+              </div>
+              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
+                <div className="text-xs font-medium opacity-80">HIGH</div>
+                <div className="text-lg font-bold">{modalData?.h || "N/A"}</div>
+              </div>
+              <div className="bg-gray-900/50 backdrop-blur-sm text-white p-2 rounded-lg text-center">
+                <div className="text-xs font-medium opacity-80">LOW</div>
+                <div className="text-lg font-bold">{modalData?.l || "N/A"}</div>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-    </div>
+          {/* Order Form */}
+          <div className="p-4 space-y-4">
+            {/* Buy/Sell Toggle */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  setTradeDirection("buy");
+                  setbuy(true);
+                  setsell(false);
+                }}
+                className={`flex-1 h-12 font-medium ${buy ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Buy
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setTradeDirection("sell");
+                  setsell(true);
+                  setbuy(false);
+                }}
+                className={`flex-1 h-12 font-medium ${sell ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Sell
+              </Button>
+            </div>
+
+            {/* Order Type */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">Order Type</Label>
+              <select
+                className="w-full h-12 px-3 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                onChange={(e) => setOrderExecutionType(e.target.value)}
+                value={orderExecutionType}
+              >
+                <option value="market">Market</option>
+                <option value="Limit">Limit</option>
+              </select>
+            </div>
+
+            {/* Lot & Quantity */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-gray-700 font-medium">Lot</Label>
+                <Input
+                  type="number"
+                  className="h-12 bg-gray-50 border-gray-200"
+                  value={lotvalue}
+                  onChange={handlelotChange}
+                  placeholder="Enter lot"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-700 font-medium">Quantity</Label>
+                <Input
+                  type="number"
+                  className="h-12 bg-gray-100 border-gray-200"
+                  disabled
+                  value={calculateQuantity(modalData?.ts, lotvalue)}
+                />
+              </div>
+            </div>
+
+            {/* Price */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">Price</Label>
+              {orderExecutionType === "Limit" ? (
+                <Input
+                  type="number"
+                  placeholder="Enter price"
+                  className="h-12 bg-gray-50 border-gray-200"
+                  value={limitPrice}
+                  onChange={(e) => setLimitPrice(e.target.value)}
+                />
+              ) : (
+                <Input
+                  className="h-12 bg-gray-100 border-gray-200"
+                  value={buy ? `${modalData?.sp1}` : `${modalData?.bp1}`}
+                  disabled
+                />
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={placeOrder}
+                className={`flex-1 h-12 font-medium ${sell ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+              >
+                Place Order
+              </Button>
+              <Button
+                variant="outline"
+                onClick={closemodalhandle}
+                className="flex-1 h-12 font-medium border-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert Modal */}
+      <AlertModal
+        open={alertModal.open}
+        onClose={closeAlert}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
+    </>
   );
 };
 

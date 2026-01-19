@@ -1,4 +1,5 @@
 "use client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Dashboard = () => {
   // Sample data for demonstration
@@ -30,203 +31,110 @@ const Dashboard = () => {
       qty: 150,
       rate: 152.5,
     },
-    // Add more sample orders as needed
   ];
 
+  const tableHeaders = ["Time", "Client", "Script", "Type", "Lot", "Qty", "Rate"];
+
+  const TableComponent = ({ title, data }) => (
+    <Card className="shadow-soft border-0 bg-white">
+      <CardHeader className="pb-3 bg-zinc-800 rounded-t-xl">
+        <CardTitle className="text-base font-semibold text-white">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-zinc-100 border-b border-zinc-200">
+                {tableHeaders.map((header) => (
+                  <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {data.length > 0 ? (
+                data.map((order, index) => (
+                  <tr key={index} className="hover:bg-zinc-50 transition-colors duration-150">
+                    <td className="px-4 py-3 text-sm text-zinc-700">{order.time}</td>
+                    <td className="px-4 py-3 text-sm text-zinc-700">{order.client}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-zinc-900">{order.script}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${order.type === "Buy"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-700"
+                        }`}>
+                        {order.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-zinc-700">{order.lot}</td>
+                    <td className="px-4 py-3 text-sm text-zinc-700">{order.qty}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-zinc-900">₹{order.rate.toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-zinc-500">
+                    No Data Available
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="p-2 bg-white">
-        <div className="flex items-center space-x-2 bg-white shadow-md rounded-lg p-2">
-          <span className="text-xl font-bold">Dashboard</span>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900">Dashboard</h1>
+          <p className="text-sm text-zinc-500 mt-1">Overview of your trading activity</p>
+        </div>
+
+        {/* Marquee Notice */}
+        {/* <div className="flex-1 max-w-xl overflow-hidden rounded-lg bg-amber-50 border border-amber-200 px-4 py-2">
           <div className="marquee">
-            <span className="text-red-600">
-              Money involved. This is a Virtual Trading Application which has
-              all the features to trade. This application is used for exchanging
-              views on markets for India
+            <span className="text-amber-700 text-sm font-medium">
+              ⚠️ Money involved. This is a Virtual Trading Application for exchanging views on markets.
             </span>
-          </div>
-        </div>
-
-      <div className="flex flex-col mt-4">
-        <div className="flex flex-row space-x-4 mb-6">
-          {/* Latest Orders Table */}
-          <div className="flex-1 bg-white shadow-md rounded-lg">
-            <div className="flex flex-row bg-darkgrayish rounded-t-lg">
-              <div className="p-2 text-white font-bold">Latest Orders</div>
-            </div>
-            <div className="h-1 bg-black w-full" />
-            <div className="overflow-x-auto mt-4">
-              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                <thead>
-                  <tr className="bg-gray-200 text-left text-sm font-bold uppercase text-black">
-                    {["Time", "Client", "Script", "Type", "Lot", "Qty", "Rate"].map((header) => (
-                      <th key={header} className="p-3 border-b border-gray-300">
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.length > 0 ? (
-                    orders.map((order, index) => (
-                      <tr key={index} className="text-sm text-gray-700 hover:bg-gray-100 transition duration-200">
-                        <td className="p-3 border-b border-gray-300">{order.time}</td>
-                        <td className="p-3 border-b border-gray-300">{order.client}</td>
-                        <td className="p-3 border-b border-gray-300">{order.script}</td>
-                        <td className="p-3 border-b border-gray-300">{order.type}</td>
-                        <td className="p-3 border-b border-gray-300">{order.lot}</td>
-                        <td className="p-3 border-b border-gray-300">{order.qty}</td>
-                        <td className="p-3 border-b border-gray-300">{order.rate.toFixed(2)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="7"
-                        className="flex justify-center items-center bg-white font-extralight p-4 text-gray-500"
-                      >
-                        No Data Available
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Pending Orders Table */}
-          <div className="flex-1 bg-white shadow-md rounded-lg">
-            <div className="flex flex-row bg-darkgrayish rounded-t-lg">
-              <div className="p-2 text-white font-bold">Pending Orders</div>
-            </div>
-            <div className="h-1 bg-black w-full" />
-            <div className="overflow-x-auto mt-4">
-              <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                <thead>
-                  <tr className="bg-gray-200 text-left text-sm font-bold uppercase text-black">
-                    {["Time", "Client", "Script", "Type", "Lot", "Qty", "Rate"].map((header) => (
-                      <th key={header} className="p-3 border-b border-gray-300">
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.length > 0 ? (
-                    orders.map((order, index) => (
-                      <tr key={index} className="text-sm text-gray-700 hover:bg-gray-100 transition duration-200">
-                        <td className="p-3 border-b border-gray-300">{order.time}</td>
-                        <td className="p-3 border-b border-gray-300">{order.client}</td>
-                        <td className="p-3 border-b border-gray-300">{order.script}</td>
-                        <td className="p-3 border-b border-gray-300">{order.type}</td>
-                        <td className="p-3 border-b border-gray-300">{order.lot}</td>
-                        <td className="p-3 border-b border-gray-300">{order.qty}</td>
-                        <td className="p-3 border-b border-gray-300">{order.rate.toFixed(2)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="7"
-                        className="flex justify-center items-center bg-white font-extralight p-4 text-gray-500"
-                      >
-                        No Data Available
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Rejection Logs Table */}
-        <div className="bg-white shadow-md rounded-lg mb-6">
-          <div className="flex flex-row bg-darkgrayish rounded-t-lg">
-            <div className="p-2 text-white font-bold">Rejection Logs</div>
-          </div>
-          <div className="h-1 bg-black w-full" />
-          <div className="overflow-x-auto mt-4">
-            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-              <thead>
-                <tr className="bg-gray-200 text-left text-sm font-bold uppercase text-black">
-                  {["Time", "Client", "Script", "Type", "Lot", "Qty", "Rate"].map((header) => (
-                    <th key={header} className="p-3 border-b border-gray-300">
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {orders.length > 0 ? (
-                  orders.map((order, index) => (
-                    <tr key={index} className="text-sm text-gray-700 hover:bg-gray-100 transition duration-200">
-                      <td className="p-3 border-b border-gray-300">{order.time}</td>
-                      <td className="p-3 border-b border-gray-300">{order.client}</td>
-                      <td className="p-3 border-b border-gray-300">{order.script}</td>
-                      <td className="p-3 border-b border-gray-300">{order.type}</td>
-                      <td className="p-3 border-b border-gray-300">{order.lot}</td>
-                      <td className="p-3 border-b border-gray-300">{order.qty}</td>
-                      <td className="p-3 border-b border-gray-300">{order.rate.toFixed(2)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      className="flex justify-center items-center bg-white font-extralight p-4 text-gray-500"
-                    >
-                      No Data Available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        {/* <div className="bg-white shadow-md rounded-lg mb-6">
-          <div className="flex flex-row bg-darkgrayish rounded-t-lg">
-            <div className="p-2 text-white font-bold">Rejection Logs</div>
-          </div>
-          <div className="h-1 bg-black w-full" />
-          <div className="overflow-x-auto mt-4">
-            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-              <thead>
-                <tr className="bg-gray-200 text-left text-sm font-bold uppercase text-black">
-                  {["Time", "Client", "Script", "Type", "Lot", "Qty", "Rate"].map((header) => (
-                    <th key={header} className="p-3 border-b border-gray-300">
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {orders.length > 0 ? (
-                  orders.map((order, index) => (
-                    <tr key={index} className="text-sm text-gray-700 hover:bg-gray-100 transition duration-200">
-                      <td className="p-3 border-b border-gray-300">{order.time}</td>
-                      <td className="p-3 border-b border-gray-300">{order.client}</td>
-                      <td className="p-3 border-b border-gray-300">{order.script}</td>
-                      <td className="p-3 border-b border-gray-300">{order.type}</td>
-                      <td className="p-3 border-b border-gray-300">{order.lot}</td>
-                      <td className="p-3 border-b border-gray-300">{order.qty}</td>
-                      <td className="p-3 border-b border-gray-300">{order.rate.toFixed(2)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      className="flex justify-center items-center bg-white font-extralight p-4 text-gray-500"
-                    >
-                      No Data Available
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
         </div> */}
       </div>
+
+      {/* Stats Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Total Orders", value: "156", change: "+12%", up: true },
+          { label: "Pending Orders", value: "23", change: "-5%", up: false },
+          { label: "Today's Volume", value: "₹2.4M", change: "+18%", up: true },
+          { label: "Active Scripts", value: "42", change: "+3%", up: true },
+        ].map((stat, index) => (
+          <Card key={index} className="shadow-soft border-0 bg-white">
+            <CardContent className="p-5">
+              <p className="text-sm font-medium text-zinc-500">{stat.label}</p>
+              <div className="flex items-baseline gap-2 mt-2">
+                <p className="text-2xl font-bold text-zinc-900">{stat.value}</p>
+                <span className={`text-xs font-medium ${stat.up ? "text-emerald-600" : "text-red-600"}`}>
+                  {stat.change}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Orders Tables */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TableComponent title="Latest Orders" data={orders} />
+        <TableComponent title="Pending Orders" data={orders} />
+      </div>
+
+      {/* Rejection Logs */}
+      <TableComponent title="Rejection Logs" data={orders} />
     </div>
   );
 };

@@ -1,5 +1,10 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { AlertModal } from "@/components/ui/alert-modal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 
 const TrashPage = () => {
   const [trashOrders, setTrashOrders] = useState([]);
@@ -7,6 +12,31 @@ const TrashPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [loading, setLoading] = useState(true);
+
+  // Alert Modal State
+  const [alertModal, setAlertModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    variant: "info"
+  });
+
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    orderId: null,
+    isLoading: false
+  });
+
+  const showAlert = (title, message, variant = "info") => {
+    setAlertModal({ open: true, title, message, variant });
+  };
+
+  const closeAlert = () => {
+    setAlertModal(prev => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     fetchTrashOrders();
@@ -35,7 +65,7 @@ const TrashPage = () => {
   const handleRestoreOrder = async (orderId) => {
     try {
       const email = localStorage.getItem('TradingUserEmail');
-      
+
       const response = await fetch('/api/restoreFromTrash', {
         method: 'POST',
         headers: {
@@ -50,28 +80,36 @@ const TrashPage = () => {
       const result = await response.json();
 
       if (response.ok) {
-        alert('Order restored successfully!');
-        fetchTrashOrders(); // Refresh the list
+        showAlert('Restored', 'Order restored successfully!', 'success');
+        fetchTrashOrders();
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert('Error', `Error: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('Error restoring order:', error);
-      alert('Failed to restore order. Please try again.');
+      showAlert('Error', 'Failed to restore order. Please try again.', 'error');
     }
   };
 
-  const handleDeletePermanently = async (orderId) => {
+  const openDeleteConfirm = (orderId) => {
+    setConfirmModal({
+      open: true,
+      title: "Permanent Delete",
+      message: "Are you sure you want to permanently delete this order? This action cannot be undone.",
+      orderId: orderId,
+      isLoading: false
+    });
+  };
+
+  const handleDeletePermanently = async () => {
+    const orderId = confirmModal.orderId;
+    if (!orderId) return;
+
+    setConfirmModal(prev => ({ ...prev, isLoading: true }));
+
     try {
       const email = localStorage.getItem('TradingUserEmail');
-      
-      // Confirm permanent deletion
-      const confirmDelete = window.confirm('Are you sure you want to permanently delete this order? This action cannot be undone.');
-      
-      if (!confirmDelete) {
-        return;
-      }
-      
+
       const response = await fetch('/api/deleteFromTrash', {
         method: 'POST',
         headers: {
@@ -85,20 +123,23 @@ const TrashPage = () => {
 
       const result = await response.json();
 
+      setConfirmModal(prev => ({ ...prev, open: false, isLoading: false }));
+
       if (response.ok) {
-        alert('Order permanently deleted!');
-        fetchTrashOrders(); // Refresh the list
+        showAlert('Deleted', 'Order permanently deleted!', 'success');
+        fetchTrashOrders();
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert('Error', `Error: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('Error deleting order:', error);
-      alert('Failed to delete order. Please try again.');
+      setConfirmModal(prev => ({ ...prev, open: false, isLoading: false }));
+      showAlert('Error', 'Failed to delete order. Please try again.', 'error');
     }
   };
 
   const filteredOrders = trashOrders.filter(order => {
-    const matchesSearchTerm = 
+    const matchesSearchTerm =
       order.symbol?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.market?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -122,138 +163,189 @@ const TrashPage = () => {
 
   if (loading) {
     return (
-      <div className="bg-gray-100 p-4 min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading trash...</div>
+      <div className="bg-gray-50 p-4 min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <svg className="animate-spin h-8 w-8 text-gray-600" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span className="text-gray-600 font-medium">Loading trash...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-100 p-4 min-h-screen">
-      <div className="flex items-center space-x-2 bg-white shadow-md rounded-lg p-3">
-        <span className="font-black text-xl w-[65px]">Trash</span>
-        {/* <div className="marquee">
-          <span className="text-red-600">
-            Removed orders are stored here. You can restore or permanently delete them.
-          </span>
-        </div> */}
-        {/* <div className="ml-auto text-sm text-gray-600">
-          <span className="font-semibold">Total items:</span> {trashOrders.length}
-        </div> */}
+    <>
+      <div className="bg-gray-50 p-2 md:p-4 min-h-screen">
+        {/* Header */}
+        <Card className="mb-4 bg-white shadow-sm">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="font-bold text-lg md:text-xl text-gray-900">Trash</h1>
+                <p className="text-sm text-gray-500">{trashOrders.length} items in trash</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Content */}
+        <Card className="bg-gray-800 shadow-lg">
+          <CardContent className="p-4">
+            {/* Search */}
+            <div className="mb-4">
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search in trash..."
+                className="max-w-sm h-11 bg-white border-0"
+              />
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto rounded-lg">
+              <table className="w-full min-w-[800px] bg-white">
+                <thead>
+                  <tr className="bg-gray-900 text-white">
+                    <th className="p-3 text-left text-sm font-medium">#</th>
+                    <th className="p-3 text-left text-sm font-medium">Trade By</th>
+                    <th className="p-3 text-left text-sm font-medium">Time</th>
+                    <th className="p-3 text-left text-sm font-medium">Market</th>
+                    <th className="p-3 text-left text-sm font-medium">Symbol</th>
+                    <th className="p-3 text-center text-sm font-medium">Type</th>
+                    <th className="p-3 text-center text-sm font-medium">Lot</th>
+                    <th className="p-3 text-center text-sm font-medium">Qty</th>
+                    <th className="p-3 text-center text-sm font-medium">Price</th>
+                    <th className="p-3 text-center text-sm font-medium">Status</th>
+                    <th className="p-3 text-center text-sm font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentOrders.length > 0 ? (
+                    currentOrders.map((order, index) => (
+                      <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="p-3 text-gray-700">{index + indexOfFirstItem + 1}</td>
+                        <td className="p-3 text-gray-700 text-sm">{order.email}</td>
+                        <td className="p-3 text-gray-600 text-sm">{new Date(order.timestamp).toLocaleString()}</td>
+                        <td className="p-3 text-gray-700">{order.market}</td>
+                        <td className="p-3 font-medium text-gray-900">{order.symbol}</td>
+                        <td className="p-3 text-center">
+                          <span className="text-sm text-gray-600">{order.type}</span>
+                        </td>
+                        <td className="p-3 text-center text-gray-700">{order.lot}</td>
+                        <td className="p-3 text-center text-gray-700">{order.quantity}</td>
+                        <td className="p-3 text-center font-medium text-gray-900">₹{order.price}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : order.status === "completed"
+                                ? "bg-green-100 text-green-700"
+                                : order.status === "rejected"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-700"
+                            }`}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleRestoreOrder(order._id)}
+                              className="h-9 bg-green-600 hover:bg-green-700 text-white text-xs"
+                            >
+                              Restore
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => openDeleteConfirm(order._id)}
+                              className="h-9 text-xs"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="11" className="text-center p-8 text-gray-500">
+                        {trashOrders.length === 0 ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>No items in trash</span>
+                          </div>
+                        ) : "No items match your search"}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
+              <span className="text-white text-sm">
+                Showing {filteredOrders.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handlePrevious}
+                  disabled={currentPage === 1}
+                  variant="secondary"
+                  className="h-10"
+                >
+                  Previous
+                </Button>
+                <Button
+                  onClick={handleNext}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  variant="secondary"
+                  className="h-10"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="bg-[#2b3f54] p-4 rounded-lg shadow-lg mt-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center p-1 space-x-2">
-            <input 
-              type="text" 
-              id="search" 
-              className="form-input rounded-md p-3" 
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);  
-              }} 
-              placeholder='Search in trash...' 
-            />
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="max-h-[400px]  overflow-y-auto bg-white">
-            <thead>
-              <tr className="bg-gray-800 text-white">
-                <th className="p-2">Index</th>
-                <th className="p-2">Trade By</th>
-                <th className="p-2">Time</th>
-                <th className="p-2">Market</th>
-                <th className="p-2">Symbol</th>
-                <th className="p-2">Type</th>
-                <th className="p-2">Lot</th>
-                <th className="p-2">Qty</th>
-                <th className="p-2">Order Price</th>
-                <th className="p-2">Net Price</th>
-                <th className="p-2">Status</th>
-                {/* <th className="p-2">Original Array</th> */}
-                <th className="p-2">Restore</th>
-                <th className="p-2">Delete</th>
-              </tr>
-            </thead>
-            <tbody className='text-center'>
-              {currentOrders.length > 0 ? (
-                currentOrders.map((order, index) => (
-                  <tr key={order._id}>
-                    <td className="p-2">{index + indexOfFirstItem + 1}</td>
-                    <td className="p-2">{order.email}</td>  
-                    <td className="p-2">{new Date(order.timestamp).toLocaleString()}</td>
-                    <td className="p-2">{order.market}</td>  
-                    <td className="p-2">{order.symbol}</td>  
-                    <td className="p-2">{order.type}</td>
-                    <td className="p-2">{order.lot}</td>
-                    <td className="p-2">{order.quantity}</td>
-                    <td className="p-2">{order.price}</td>
-                    <td className="p-2">{order.price}</td>  
-                    <td className="p-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        order.status === "pending" 
-                          ? "bg-yellow-100 text-yellow-800" 
-                          : order.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : order.status === "rejected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    {/* <td className="p-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        order.originalArray === 'buyOrders' 
-                          ? "bg-blue-100 text-blue-800" 
-                          : "bg-purple-100 text-purple-800"
-                      }`}>
-                        {order.originalArray || 'buyOrders'}
-                      </span>
-                    </td> */}
-                    <td className="p-2">
-                      <button 
-                        onClick={() => handleRestoreOrder(order._id)}
-                        className="bg-green-500 text-white p-1 rounded hover:bg-green-600"
-                        title={`Restore this order to ${order.originalArray || 'buyOrders'}`}
-                      >
-                        Restore
-                      </button>
-                    </td>
-                    <td className="p-2">
-                      <button 
-                        onClick={() => handleDeletePermanently(order._id)}
-                        className="bg-red-600 text-white p-1 rounded hover:bg-red-700"
-                        title="Permanently delete this order"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="14" className="text-center p-4">
-                    {trashOrders.length === 0 ? "No items in trash" : "No items match your search"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-between items-center mt-4">
-          <span className="text-white">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries</span>
-          <div className="flex space-x-2">
-            <button onClick={handlePrevious} disabled={currentPage === 1} className="bg-gray-500 text-white p-2 rounded-md disabled:opacity-50">Previous</button>
-            <button onClick={handleNext} disabled={currentPage === totalPages} className="bg-gray-500 text-white p-2 rounded-md disabled:opacity-50">Next</button>
-          </div>
-        </div>
-      </div>
-    </div>
+      {/* Alert Modal */}
+      <AlertModal
+        open={alertModal.open}
+        onClose={closeAlert}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+        onConfirm={handleDeletePermanently}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="Delete Permanently"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={confirmModal.isLoading}
+      />
+    </>
   );
 }
 

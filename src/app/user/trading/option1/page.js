@@ -1,17 +1,21 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useWebSocket } from "@/app/lib/WebSocketContext";
-
+import { AlertModal } from "@/components/ui/alert-modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Page = () => {
-  
-  const { 
-    api, 
-    isConnected, 
-    liveData, 
-    error: wsError, 
-    subscribe, 
-    unsubscribe 
+
+  const {
+    api,
+    isConnected,
+    liveData,
+    error: wsError,
+    subscribe,
+    unsubscribe
   } = useWebSocket();
 
   const [totalOrders, setTotalOrders] = useState([]);
@@ -21,14 +25,8 @@ const Page = () => {
   const [showPendingOrders, setShowPendingOrders] = useState(false);
   const [showExecutedOrders, setShowExecutedOrders] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
-  
-  // Track which orders are subscribed to live data
   const [subscribedOrders, setSubscribedOrders] = useState(new Set());
-  
-  // Track which orders are being executed to prevent multiple executions
   const [executingOrders, setExecutingOrders] = useState(new Set());
-
-  // State variables for filter inputs
   const [tradeAfter, setTradeAfter] = useState('');
   const [tradeBefore, setTradeBefore] = useState('');
   const [market, setMarket] = useState('');
@@ -36,15 +34,29 @@ const Page = () => {
   const [orderType, setOrderType] = useState('');
   const [nextCleanup, setNextCleanup] = useState('');
 
-  // Function to subscribe to a single order
+  // Alert Modal State
+  const [alertModal, setAlertModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    variant: "info"
+  });
+
+  const showAlert = (title, message, variant = "info") => {
+    setAlertModal({ open: true, title, message, variant });
+  };
+
+  const closeAlert = () => {
+    setAlertModal(prev => ({ ...prev, open: false }));
+  };
+
   const subscribeToOrder = (order) => {
     if (!isConnected || !order.exchange || !order.token) return;
-    
+
     const subscriptionKey = `${order.exchange}|${order.token}`;
-    
-    // Check if already subscribed
+
     if (subscribedOrders.has(subscriptionKey)) return;
-    
+
     try {
       subscribe(subscriptionKey, "depth");
       setSubscribedOrders(prev => new Set(prev).add(subscriptionKey));
@@ -54,21 +66,17 @@ const Page = () => {
     }
   };
 
-  // Subscribe to orders one by one when they become available
   useEffect(() => {
     if (isConnected && totalOrders.length > 0) {
-      // Clear existing subscriptions
       setSubscribedOrders(new Set());
-      
-      // Get unique exchange|token combinations only for pending orders
+
       const uniqueInstruments = new Set();
       totalOrders.forEach(order => {
         if (order.exchange && order.token && order.status === 'pending') {
           uniqueInstruments.add(`${order.exchange}|${order.token}`);
         }
       });
-      
-      // Subscribe to each unique instrument
+
       uniqueInstruments.forEach(instrument => {
         try {
           subscribe(instrument, "depth");
@@ -78,42 +86,36 @@ const Page = () => {
           console.error(`Failed to subscribe to ${instrument}:`, error);
         }
       });
-      
+
       console.log(`Total subscriptions: ${uniqueInstruments.size}`);
     }
   }, [isConnected, totalOrders, subscribe]);
 
-  // Monitor live data updates
   useEffect(() => {
     const interval = setInterval(() => {
       if (liveData.length > 0) {
         console.log("Live data updated:", liveData.length, "items");
-        // Force re-render to update prices
         setTotalOrders(prev => [...prev]);
       }
-    }, 1000); // runs every 1 second
-  
-    return () => clearInterval(interval); // cleanup when component unmounts
-  }, [liveData]);
-  
+    }, 1000);
 
-  // Cleanup subscriptions when component unmounts
+    return () => clearInterval(interval);
+  }, [liveData]);
+
   useEffect(() => {
     return () => {
-      // Unsubscribe from all orders
       totalOrders.forEach(order => {
         if (order.exchange && order.token) {
-          unsubscribeFromOrder(order);
+          // unsubscribeFromOrder(order);
         }
       });
     };
   }, []);
 
-    useEffect(() => {
-    // Calculate next cleanup time (12am daily)
+  useEffect(() => {
     const now = new Date();
     const nextCleanupTime = new Date(now);
-    nextCleanupTime.setHours(24, 0, 0, 0); // Set to next day 12am
+    nextCleanupTime.setHours(24, 0, 0, 0);
     setNextCleanup(nextCleanupTime.toLocaleString());
 
     const fetchOrders = async () => {
@@ -133,29 +135,24 @@ const Page = () => {
     fetchOrders();
   }, []);
 
-    const resetfilters = ()=>{
-      setTradeAfter('')
-      setTradeBefore('')
-      setMarket('')
-      setScript('')
-      setOrderType('')
-    }
+  const resetfilters = () => {
+    setTradeAfter('');
+    setTradeBefore('');
+    setMarket('');
+    setScript('');
+    setOrderType('');
+  };
 
-  // const handleSearch = () => {
-  //   setCurrentPage(1); // Reset to the first page on search
-  // };
-
-  useEffect(()=>{
-    const fetchTrades = async() =>{
+  useEffect(() => {
+    const fetchTrades = async () => {
       const email = localStorage.getItem('TradingUserEmail');
-      if(!email){
-        setError("User  email not found. Please log in again.");
+      if (!email) {
         return;
       }
-      try{
+      try {
         const response = await fetch(`/api/getUsers?email=${email}`);
         const result = await response.json();
-        if(!response.ok){
+        if (!response.ok) {
           throw new Error(result.error);
         }
         const totalorder = result.users[0].totalOrders || [];
@@ -163,35 +160,32 @@ const Page = () => {
           exchange: trade.exchange,
           token: trade.token,
         }));
-        setWatchlist(trades)
+        setWatchlist(trades);
         console.log("checkout the pending order trades", trades);
-      }catch(err){
+      } catch (err) {
         console.error("Error fetching trades:", err);
-        setError(err.message);
       }
-    }
+    };
     fetchTrades();
-  },[])
+  }, []);
 
-  useEffect(()=>{
-    if(isConnected && watchlist.length > 0){
-      // Only subscribe to pending orders in watchlist
+  useEffect(() => {
+    if (isConnected && watchlist.length > 0) {
       const pendingInstruments = watchlist.filter(inst => {
         const order = totalOrders.find(o => o.exchange === inst.exchange && o.token === inst.token);
         return order && order.status === 'pending';
       });
-      
-      if(pendingInstruments.length > 0){
+
+      if (pendingInstruments.length > 0) {
         const instrumentsString = pendingInstruments.map(inst => `${inst.exchange}|${inst.token}`).join('#');
         subscribe(instrumentsString, "depth");
         console.log("Subscribing to Depth of the pending trades:", instrumentsString);
       }
     }
-  },[watchlist, isConnected, subscribe, totalOrders])
-
+  }, [watchlist, isConnected, subscribe, totalOrders]);
 
   const filteredOrders = (totalOrders || []).filter(order => {
-    const matchesSearchTerm = 
+    const matchesSearchTerm =
       order.symbol?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.market?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -227,7 +221,7 @@ const Page = () => {
   const handleCancelOrder = async (orderId) => {
     try {
       const email = localStorage.getItem('TradingUserEmail');
-      
+
       const response = await fetch('/api/cancelOrder', {
         method: 'POST',
         headers: {
@@ -242,35 +236,27 @@ const Page = () => {
       const result = await response.json();
 
       if (response.ok) {
-        // Refresh the orders data
         const userResponse = await fetch(`/api/getUsers?email=${email}`);
         const userResult = await userResponse.json();
-        
+
         if (userResult.users && userResult.users.length > 0) {
           setTotalOrders(userResult.users[0].totalOrders || []);
         }
-        
-        alert('Order cancelled successfully!');
+
+        showAlert('Cancelled', 'Order cancelled successfully!', 'success');
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert('Error', `Error: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('Error cancelling order:', error);
-      alert('Failed to cancel order. Please try again.');
+      showAlert('Error', 'Failed to cancel order. Please try again.', 'error');
     }
   };
 
   const handleRemoveOrder = async (orderId) => {
     try {
       const email = localStorage.getItem('TradingUserEmail');
-      
-      // Confirm before removing
-      // const confirmRemove = window.confirm('Are you sure you want to remove this order? It will be moved to trash.');
-      
-      // if (!confirmRemove) {
-      //   return;
-      // }
-      
+
       const response = await fetch('/api/removeOrder', {
         method: 'POST',
         headers: {
@@ -285,35 +271,30 @@ const Page = () => {
       const result = await response.json();
 
       if (response.ok) {
-        // Refresh the orders data
         const userResponse = await fetch(`/api/getUsers?email=${email}`);
         const userResult = await userResponse.json();
-        
+
         if (userResult.users && userResult.users.length > 0) {
           setTotalOrders(userResult.users[0].totalOrders || []);
         }
-        
-        // alert(`Order removed successfully! Moved to trash. (${result.trashCount} items in trash)`);
       } else {
-        alert(`Error: ${result.error}`);
+        showAlert('Error', `Error: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('Error removing order:', error);
-      alert('Failed to remove order. Please try again.');
+      showAlert('Error', 'Failed to remove order. Please try again.', 'error');
     }
   };
 
-  const hendaleExecuteOrder = async (orderId) =>{
-    // Prevent multiple executions of the same order
+  const hendaleExecuteOrder = async (orderId) => {
     if (executingOrders.has(orderId)) {
       console.log(`Order ${orderId} is already being executed`);
       return;
     }
 
-    try{
-      // Mark order as being executed
+    try {
       setExecutingOrders(prev => new Set(prev).add(orderId));
-      
+
       const email = localStorage.getItem('TradingUserEmail');
 
       const response = await fetch('/api/executeOrder', {
@@ -321,32 +302,29 @@ const Page = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({orderId,email})
-      })
+        body: JSON.stringify({ orderId, email })
+      });
 
       const result = await response.json();
-      if(response.ok){
+      if (response.ok) {
         console.log("Order executed successfully!");
-        
-        // Refresh the orders data to get updated status
+
         const userResponse = await fetch(`/api/getUsers?email=${email}`);
         const userResult = await userResponse.json();
-        
+
         if (userResult.users && userResult.users.length > 0) {
           setTotalOrders(userResult.users[0].totalOrders || []);
         }
-        
-        // Remove from executing orders set
+
         setExecutingOrders(prev => {
           const newSet = new Set(prev);
           newSet.delete(orderId);
           return newSet;
         });
-        
-        alert('Order executed successfully!');
-      }else{
+
+        showAlert('Executed', 'Order executed successfully!', 'success');
+      } else {
         console.error('Error executing order:', result.error);
-        // Remove from executing orders set on error
         setExecutingOrders(prev => {
           const newSet = new Set(prev);
           newSet.delete(orderId);
@@ -354,288 +332,311 @@ const Page = () => {
         });
       }
 
-    }catch(error){
+    } catch (error) {
       console.error('Error executing order:', error);
-      // Remove from executing orders set on error
       setExecutingOrders(prev => {
         const newSet = new Set(prev);
         newSet.delete(orderId);
         return newSet;
       });
-      alert('Failed to execute order. Please try again.');
+      showAlert('Error', 'Failed to execute order. Please try again.', 'error');
     }
-  }
+  };
 
   return (
-    <div className="bg-gray-100 p-4 min-h-screen">
-      <div className="flex items-center space-x-2 bg-white shadow-md rounded-lg p-3">
-        <span className="font-black text-xl w-[65px]">Trades</span>
-        <div className="marquee">
-          <span className="text-red-600">
-            Money involved. This is a Virtual Trading Application which has all
-            the features to trade. This application is used for exchanging views
-            on markets for India{" "}
-          </span>
-        </div>
-
-        {/* <div className="ml-auto text-sm text-gray-600">
-          <span className="font-semibold">Next cleanup:</span> {nextCleanup}
-        </div> */}
-
-      </div> 
-
-      <div className="bg-[#2b3f54] p-4 mt-2 rounded-lg shadow-lg">
-        <div className="text-white text-sm mb-2 italic">
-          Note: Pending limit orders are automatically removed at 12am daily
-        </div>
-        <div className="flex flex-wrap items-center space-x-2 mb-4">
-          <div className='flex flex-col gap-1 mr-6 mt-3'>
-            <div className="flex space-x-2">
-              <input 
-                type="checkbox" 
-                id="pendingOrders" 
-                className="form-checkbox text-green-500" 
-                checked={showPendingOrders} 
-                onChange={() => setShowPendingOrders(!showPendingOrders)} 
-              />
-              <label htmlFor="pendingOrders" className="text-white">Pending Orders</label>
+    <>
+      <div className="bg-gray-50 p-2 md:p-4 min-h-screen">
+        {/* Header */}
+        <Card className="mb-4 bg-white shadow-sm">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-2">
+              <span className="font-bold text-lg md:text-xl text-gray-900">Trades</span>
+              <div className="marquee flex-1 overflow-hidden">
+                <span className="text-red-600 text-sm">
+                  Money involved. This is a Virtual Trading Application which has all
+                  the features to trade. This application is used for exchanging views
+                  on markets for India
+                </span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="checkbox" 
-                id="executedOrders" 
-                className="form-checkbox text-green-500" 
-                checked={showExecutedOrders} 
-                onChange={() => setShowExecutedOrders(!showExecutedOrders)} 
-              />
-              <label htmlFor="executedOrders" className="text-white">Executed/Rejected Orders</label>
+          </CardContent>
+        </Card>
+
+        {/* Filters */}
+        <Card className="mb-4 bg-gray-800 shadow-lg">
+          <CardContent className="p-4">
+            <p className="text-white text-sm mb-3 italic opacity-80">
+              Note: Pending limit orders are automatically removed at 12am daily
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              {/* Checkboxes */}
+              <div className="flex flex-col gap-2 col-span-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300"
+                    checked={showPendingOrders}
+                    onChange={() => setShowPendingOrders(!showPendingOrders)}
+                  />
+                  <span className="text-white text-sm">Pending Orders</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300"
+                    checked={showExecutedOrders}
+                    onChange={() => setShowExecutedOrders(!showExecutedOrders)}
+                  />
+                  <span className="text-white text-sm">Executed/Rejected</span>
+                </label>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Trade After</Label>
+                <Input
+                  type="date"
+                  value={tradeAfter}
+                  onChange={(e) => setTradeAfter(e.target.value)}
+                  className="h-10 bg-white border-0"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Trade Before</Label>
+                <Input
+                  type="date"
+                  value={tradeBefore}
+                  onChange={(e) => setTradeBefore(e.target.value)}
+                  className="h-10 bg-white border-0"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Market</Label>
+                <Input
+                  type="text"
+                  placeholder="Market"
+                  value={market}
+                  onChange={(e) => setMarket(e.target.value)}
+                  className="h-10 bg-white border-0"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Script</Label>
+                <Input
+                  type="text"
+                  placeholder="Script Name"
+                  value={script}
+                  onChange={(e) => setScript(e.target.value)}
+                  className="h-10 bg-white border-0"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <Button
+                  onClick={resetfilters}
+                  className="h-10 bg-white text-gray-900 hover:bg-gray-100"
+                >
+                  Reset Filters
+                </Button>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col">
-            <label htmlFor="tradeAfter" className ="text-white">Trade After</label>
-            <input 
-              type="date" 
-              id="tradeAfter" 
-              className="form-input rounded-md p-2" 
-              value={tradeAfter}
-              onChange={(e) => setTradeAfter(e.target.value)} 
-            />
-          </div>
-          <div className="flex flex-col">
-            <label htmlFor="tradeBefore" className="text-white">Trade Before</label>
-            <input 
-              type="date" 
-              id="tradeBefore" 
-              className="form-input rounded-md p-2" 
-              value={tradeBefore}
-              onChange={(e) => setTradeBefore(e.target.value)} 
-            />
-          </div>
-          <div className="flex flex-col ">
-            <label htmlFor="market" className="text-white">Market</label>
-            <input 
-              type="text" 
-              id="market" 
-              placeholder="Market" 
-              className="form-input rounded-md p-2" 
-              value={market}
-              onChange={(e) => setMarket(e.target.value)} 
-            />
-          </div>
-          <div className="flex flex-col ">
-            <label htmlFor="script" className="text-white">Script</label>
-            <input 
-              type="text" 
-              id="script" 
-              placeholder="Script Name" 
-              className="form-input rounded-md p-2" 
-              value={script}
-              onChange={(e) => setScript(e.target.value)} 
-            />
-          </div>
-          <div className="flex flex-col ">
-            <label htmlFor="orderType" className="text-white">Order Type</label>
-            <input 
-              type="text" 
-              id="orderType" 
-              placeholder="Order Type" 
-              className="form-input rounded-md p-2" 
-              value={orderType}
-              onChange={(e) => setOrderType(e.target.value)} 
-            />
+          </CardContent>
+        </Card>
 
-          </div>
-          <div className="flex flex-col mt-6 border-b-4 border-orange-500 text-black bg-white rounded-lg w-[80px] h-[40px] p-4 text-center items-center justify-center">
-            <button onClick={resetfilters}>Reset</button>
-          </div>
-        </div>
-      </div>
-      <div className="bg-[#2b3f54] p-4 rounded-lg shadow-lg mt-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center p-1 space-x-2">
-            <input 
-              type="text" 
-              id="search" 
-              className="form-input rounded-md p-3" 
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);  
-              }} 
-              placeholder='Search...' 
-            />
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="max-h-[400px] overflow-y-auto bg-white">
-            <thead>
-              <tr className="bg-gray-800 text-white">
-                <th className="p-2">Index</th>
-                <th className="p-2">Trade By</th>
-                <th className="p-2">Time</th>
-                <th className="p-2">Market</th>
-                <th className="p-2">Symbol</th>
-                <th className="p-2">Orders</th>
-                <th className="p-2">Type</th>
-                <th className="p-2">Lot</th>
-                <th className="p-2">Qty</th>
-                <th className="p-2">Order Price</th>
-                <th className="p-2">Net Price</th>
-                <th className="p-2">Live Price</th>
-                <th className="p-2">Status</th>
-                <th className="p-2">Remove</th>
-                <th className="p-2">Cancel</th>
-              </tr>
-            </thead>
-            <tbody className='text-center'>
-              {currentOrders.length > 0 ? (
-                currentOrders.map((order, index) => (
-                  <tr key={order._id}>
-                    <td className="p-2">{index + indexOfFirstItem + 1}</td>
-                    <td className="p-2">{order.email}</td>  
-                    <td className="p-2">{new Date(order.timestamp).toLocaleString()}</td>
-                    <td className="p-2">{order.market}</td>  
-                    <td className="p-2">{order.symbol}</td>  
-                    <td className="p-2">{order.originalArray}</td>  
-                    <td className="p-2">{order.type}</td>
-                    <td className="p-2">{order.lot}</td>
-                    <td className="p-2">{order.quantity}</td>
-                    <td className="p-2">{order.price}</td>
-                    <td className="p-2">{order.price}</td>  
-                    <td className="p-2">
-                       {(() => {
-                         // Find live price for this order
-                         const liveDataItem = liveData.find(data => 
-                           data.tk === `${order.exchange}|${order.token}` || 
-                           data.tk === `${order.exchange}_${order.token}` ||
-                           data.ts === order.symbol
-                         );
+        {/* Table Section */}
+        <Card className="bg-gray-800 shadow-lg">
+          <CardContent className="p-4">
+            {/* Search */}
+            <div className="mb-4">
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search..."
+                className="max-w-sm h-11 bg-white border-0"
+              />
+            </div>
 
-                         console.log("Looking for live data for:", order.exchange, order.token);
-                         console.log("Available live data:", liveData);
-                         
-                         if (liveDataItem) {
-                           console.log("Found live data item:", liveDataItem);
-                           
-                           // Get the appropriate price based on order type
-                           let livePrice = 0;
-                           const isLimitOrder = order.type === "limit" && order.status === "pending";
-                           
-                           if (order.originalArray === 'buyOrders') {
-                             livePrice = liveDataItem.sp1 || liveDataItem.lp || 0; // Best buy price or last traded price
-                           } else {
-                             livePrice = liveDataItem.bsp1 || liveDataItem.lp || 0; // Best sell price or last traded price
-                           }
-                           
-                           if (livePrice > 0) {
-                             const isPriceMatch = isLimitOrder && (
-                               (order.originalArray === 'buyOrders' && livePrice == order.price) ||
-                               (order.originalArray === 'sellOrders' && livePrice == order.price)
-                             );
-
-                             // Only execute if price matches, order is pending, and not already being executed
-                             if(isPriceMatch && order.status === 'pending' && !executingOrders.has(order._id)){
-                              hendaleExecuteOrder(order._id);
-                             }
-                             
-                             return (
-                               <div className="flex flex-col items-center">
-                                 <span className={`font-semibold ${
-                                   isPriceMatch ? 'text-black' : 'text-green-600'
-                                 }`}>
-                                   {isPriceMatch ? `₹${livePrice}` : `₹${livePrice}`}
-                                 </span>
-                                 {executingOrders.has(order._id) && (
-                                   <span className="text-xs text-orange-500">Executing...</span>
-                                 )}
-                               </div>
-                             );
-                           }
-                         }
-                         
-                         // 
-                         return (
-                           <div className="text-center">
-                             <span className="text-gray-400">--</span>
-                           </div>
-                         );
-                       })()}
-                     </td>
-                    <td className="p-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        order.status === "pending" 
-                          ? "bg-yellow-100 text-yellow-800" 
-                          : order.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : order.status === "rejected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="p-2">
-                      <button 
-                        onClick={() => handleRemoveOrder(order._id)}
-                        className="bg-red-500 text-white p-1 rounded hover:bg-red-600"
-                        title="Remove this order (moves to trash)"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                    <td className="p-2">
-                      <button
-                        disabled={order.status !== "pending"}
-                        onClick={() => handleCancelOrder(order._id)}
-                        className={`p-1 rounded 
-                          ${order.status === "pending" 
-                            ? "bg-red-500 text-white hover:bg-red-600" 
-                            : "bg-gray-300 text-gray-500 cursor-not-allowed"}
-                        `}
-                        title={order.status === "pending" ? "Cancel this order" : "Only pending orders can be cancelled"}
-                      >
-                        Cancel
-                      </button>
-                    </td>
+            {/* Table */}
+            <div className="overflow-x-auto rounded-lg">
+              <table className="w-full min-w-[1200px] bg-white">
+                <thead>
+                  <tr className="bg-gray-900 text-white">
+                    <th className="p-3 text-left text-sm font-medium">#</th>
+                    <th className="p-3 text-left text-sm font-medium">Trade By</th>
+                    <th className="p-3 text-left text-sm font-medium">Time</th>
+                    <th className="p-3 text-left text-sm font-medium">Market</th>
+                    <th className="p-3 text-left text-sm font-medium">Symbol</th>
+                    <th className="p-3 text-center text-sm font-medium">Orders</th>
+                    <th className="p-3 text-center text-sm font-medium">Type</th>
+                    <th className="p-3 text-center text-sm font-medium">Lot</th>
+                    <th className="p-3 text-center text-sm font-medium">Qty</th>
+                    <th className="p-3 text-center text-sm font-medium">Price</th>
+                    <th className="p-3 text-center text-sm font-medium">Live Price</th>
+                    <th className="p-3 text-center text-sm font-medium">Status</th>
+                    <th className="p-3 text-center text-sm font-medium">Actions</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="13" className="text-center p-4">No data available in table</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-between items-center mt-4">
-          <span className="text-white">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries</span>
-          <div className="flex space-x-2">
-            <button onClick={handlePrevious} disabled={currentPage === 1} className="bg-gray-500 text-white p-2 rounded-md disabled:opacity-50">Previous</button>
-            <button onClick={handleNext} disabled={currentPage === totalPages} className="bg-gray-500 text-white p-2 rounded-md disabled:opacity-50">Next</button>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {currentOrders.length > 0 ? (
+                    currentOrders.map((order, index) => (
+                      <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="p-3 text-gray-700">{index + indexOfFirstItem + 1}</td>
+                        <td className="p-3 text-gray-700 text-sm">{order.email}</td>
+                        <td className="p-3 text-gray-600 text-sm">{new Date(order.timestamp).toLocaleString()}</td>
+                        <td className="p-3 text-gray-700">{order.market}</td>
+                        <td className="p-3 font-medium text-gray-900">{order.symbol}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.originalArray === 'buyOrders'
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                            }`}>
+                            {order.originalArray === 'buyOrders' ? 'BUY' : 'SELL'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center text-gray-600 text-sm">{order.type}</td>
+                        <td className="p-3 text-center text-gray-700">{order.lot}</td>
+                        <td className="p-3 text-center text-gray-700">{order.quantity}</td>
+                        <td className="p-3 text-center font-medium text-gray-900">₹{order.price}</td>
+                        <td className="p-3 text-center">
+                          {(() => {
+                            const liveDataItem = liveData.find(data =>
+                              data.tk === `${order.exchange}|${order.token}` ||
+                              data.tk === `${order.exchange}_${order.token}` ||
+                              data.ts === order.symbol
+                            );
+
+                            if (liveDataItem) {
+                              let livePrice = 0;
+                              const isLimitOrder = order.type === "limit" && order.status === "pending";
+
+                              if (order.originalArray === 'buyOrders') {
+                                livePrice = liveDataItem.sp1 || liveDataItem.lp || 0;
+                              } else {
+                                livePrice = liveDataItem.bsp1 || liveDataItem.lp || 0;
+                              }
+
+                              if (livePrice > 0) {
+                                const isPriceMatch = isLimitOrder && (
+                                  (order.originalArray === 'buyOrders' && livePrice == order.price) ||
+                                  (order.originalArray === 'sellOrders' && livePrice == order.price)
+                                );
+
+                                if (isPriceMatch && order.status === 'pending' && !executingOrders.has(order._id)) {
+                                  hendaleExecuteOrder(order._id);
+                                }
+
+                                return (
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-semibold text-green-600">
+                                      ₹{livePrice}
+                                    </span>
+                                    {executingOrders.has(order._id) && (
+                                      <span className="text-xs text-orange-500">Executing...</span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            }
+
+                            return (
+                              <span className="text-gray-400">--</span>
+                            );
+                          })()}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : order.status === "completed"
+                                ? "bg-green-100 text-green-700"
+                                : order.status === "rejected"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-700"
+                            }`}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRemoveOrder(order._id)}
+                              className="h-8 text-xs hover:bg-red-50 hover:text-red-600"
+                              title="Remove (move to trash)"
+                            >
+                              Remove
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={order.status !== "pending"}
+                              onClick={() => handleCancelOrder(order._id)}
+                              className={`h-8 text-xs ${order.status === "pending"
+                                  ? "bg-red-500 hover:bg-red-600 text-white"
+                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                }`}
+                              title={order.status === "pending" ? "Cancel order" : "Only pending orders can be cancelled"}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="13" className="text-center p-8 text-gray-500">
+                        No data available in table
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
+              <span className="text-white text-sm">
+                Showing {filteredOrders.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handlePrevious}
+                  disabled={currentPage === 1}
+                  variant="secondary"
+                  className="h-10"
+                >
+                  Previous
+                </Button>
+                <Button
+                  onClick={handleNext}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  variant="secondary"
+                  className="h-10"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        open={alertModal.open}
+        onClose={closeAlert}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
+    </>
   );
 }
 

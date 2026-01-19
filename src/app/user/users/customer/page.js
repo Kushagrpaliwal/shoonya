@@ -1,5 +1,16 @@
 "use client";
 import React, { useState } from "react";
+import { AlertModal } from "@/components/ui/alert-modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const ClientListing = () => {
   const [user, setUser] = useState("My user");
@@ -9,7 +20,7 @@ const ClientListing = () => {
   const [joinBefore, setJoinBefore] = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState("15");
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   // User creation form states
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,6 +31,22 @@ const ClientListing = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Alert Modal State
+  const [alertModal, setAlertModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    variant: "info"
+  });
+
+  const showAlert = (title, message, variant = "info") => {
+    setAlertModal({ open: true, title, message, variant });
+  };
+
+  const closeAlert = () => {
+    setAlertModal(prev => ({ ...prev, open: false }));
+  };
 
   // Sample data
   const clientData = [
@@ -48,38 +75,33 @@ const ClientListing = () => {
   ];
 
   const handleSearch = () => {
-    // Search functionality
     console.log("Searching...");
   };
 
   // Form validation
   const validateForm = () => {
     const errors = {};
-    
+
     if (!formData.email) {
       errors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = "Email is invalid";
     }
-    
+
     if (!formData.password) {
       errors.password = "Password is required";
     } else if (formData.password.length < 6) {
       errors.password = "Password must be at least 6 characters";
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       errors.confirmPassword = "Passwords do not match";
     }
-    
+
     if (!formData.name) {
       errors.name = "Name is required";
     }
-    
 
-    
-
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -87,13 +109,13 @@ const ClientListing = () => {
   // Handle form submission
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch("/api/createUser", {
         method: "POST",
@@ -106,11 +128,11 @@ const ClientListing = () => {
           name: formData.name
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
-        alert("User created successfully!");
+        showAlert("Success", "User created successfully!", "success");
         setShowCreateForm(false);
         setFormData({
           email: "",
@@ -119,13 +141,12 @@ const ClientListing = () => {
           name: ""
         });
         setFormErrors({});
-        // Optionally refresh the client list here
       } else {
-        alert(data.error || "Failed to create user");
+        showAlert("Error", data.error || "Failed to create user", "error");
       }
     } catch (error) {
       console.error("Error creating user:", error);
-      alert("An error occurred while creating the user");
+      showAlert("Error", "An error occurred while creating the user", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -137,8 +158,7 @@ const ClientListing = () => {
       ...prev,
       [name]: value
     }));
-    
-    // Clear error when user starts typing
+
     if (formErrors[name]) {
       setFormErrors(prev => ({
         ...prev,
@@ -148,338 +168,301 @@ const ClientListing = () => {
   };
 
   return (
-    <div className="bg-white min-h-screen p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-white shadow-md rounded-lg p-3">
-        <h1 className="text-xl font-semibold">Client Listing</h1>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Create New User
-        </button>
-      </div>
-
-      {/* Filter Section */}
-      <div className="bg-gray-700 text-white p-4 mt-3 rounded-lg">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-          <div className="flex flex-col">
-            <label className="text-sm mb-1">User</label>
-            <select
-              value={user}
-              onChange={(e) => setUser(e.target.value)}
-              className="px-3 py-2 text-black rounded border"
-            >
-              <option value="My user">My user</option>
-              <option value="Other user">Other user</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm mb-1">Master</label>
-            <input
-              type="text"
-              placeholder="Select Master"
-              value={master}
-              onChange={(e) => setMaster(e.target.value)}
-              className="px-3 py-2 text-black rounded border"
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm mb-1">Broker</label>
-            <input
-              type="text"
-              placeholder="Select Broker"
-              value={broker}
-              onChange={(e) => setBroker(e.target.value)}
-              className="px-3 py-2 text-black rounded border"
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm mb-1">Join After</label>
-            <input
-              type="date"
-              value={joinAfter}
-              onChange={(e) => setJoinAfter(e.target.value)}
-              className="px-3 py-2 text-black rounded border"
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm mb-1">Join Before</label>
-            <input
-              type="date"
-              value={joinBefore}
-              onChange={(e) => setJoinBefore(e.target.value)}
-              className="px-3 py-2 text-black rounded border"
-            />
-          </div>
-
-          <button
-            onClick={handleSearch}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
-          >
-            Search
-          </button>
-        </div>
-      </div>
-
-      {/* Data Table Section */}
-      <div className="p-4">
-        {/* Table Controls */}
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <select
-              value={entriesPerPage}
-              onChange={(e) => setEntriesPerPage(e.target.value)}
-              className="border px-2 py-1 rounded"
-            >
-              <option value="15">15</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-            <span>entries</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span>Search:</span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border px-3 py-1 rounded"
-            />
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-300">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Name ↑
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Login ID ↑
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Broker
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Master
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Only Position
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Action
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Login Time ↑
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Login IP
-                </th>
-                <th className="border border-gray-300 px-4 py-2 text-left">
-                  Join Time
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientData.map((client, index) => (
-                <tr
-                  key={index}
-                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  <td className="border border-gray-300 px-4 py-2">
-                    {client.name}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {client.loginId}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-blue-600">
-                    {client.broker}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {client.master}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    <span className="text-red-600 font-semibold">
-                      {client.onlyPosition}
-                    </span>
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    <button className="bg-red-500 text-white px-2 py-1 rounded text-sm">
-                      {client.action}
-                    </button>
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {client.loginTime}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-blue-600">
-                    {client.loginIP}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {client.joinTime}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex justify-between items-center mt-4">
-          <div className="text-sm text-gray-600">
-            Showing 1 to 2 of 2 entries
-          </div>
-          <div className="flex gap-2">
-            <button className="px-3 py-1 border rounded text-gray-500 cursor-not-allowed">
-              Previous
-            </button>
-            <button className="px-3 py-1 bg-teal-600 text-white rounded">
-              1
-            </button>
-            <button className="px-3 py-1 border rounded text-gray-500 cursor-not-allowed">
-              Next
-            </button>
-          </div>
-        </div>
-      </div>  
-
-      {/* Create User Modal */}
-      {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Create New User</h2>
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="text-gray-500 hover:text-gray-700"
+    <>
+      <div className="bg-gray-50 min-h-screen p-2 md:p-4">
+        {/* Header */}
+        <Card className="mb-4 bg-white shadow-sm">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h1 className="text-lg md:text-xl font-bold text-gray-900">Client Listing</h1>
+              <Button
+                onClick={() => setShowCreateForm(true)}
+                className="h-11 bg-gray-900 hover:bg-gray-800 text-white"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-              </button>
+                Create New User
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Filter Section */}
+        <Card className="mb-4 bg-gray-800 shadow-lg">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="space-y-1">
+                <Label className="text-white text-sm">User</Label>
+                <select
+                  value={user}
+                  onChange={(e) => setUser(e.target.value)}
+                  className="w-full h-11 px-3 rounded-lg bg-white border-0 text-gray-900"
+                >
+                  <option value="My user">My user</option>
+                  <option value="Other user">Other user</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Master</Label>
+                <Input
+                  type="text"
+                  placeholder="Select Master"
+                  value={master}
+                  onChange={(e) => setMaster(e.target.value)}
+                  className="h-11 bg-white border-0"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Broker</Label>
+                <Input
+                  type="text"
+                  placeholder="Select Broker"
+                  value={broker}
+                  onChange={(e) => setBroker(e.target.value)}
+                  className="h-11 bg-white border-0"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Join After</Label>
+                <Input
+                  type="date"
+                  value={joinAfter}
+                  onChange={(e) => setJoinAfter(e.target.value)}
+                  className="h-11 bg-white border-0"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-white text-sm">Join Before</Label>
+                <Input
+                  type="date"
+                  value={joinBefore}
+                  onChange={(e) => setJoinBefore(e.target.value)}
+                  className="h-11 bg-white border-0"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <Button
+                  onClick={handleSearch}
+                  className="w-full h-11 bg-white text-gray-900 hover:bg-gray-100"
+                >
+                  Search
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Table Section */}
+        <Card className="bg-white shadow-sm">
+          <CardContent className="p-4">
+            {/* Table Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Show</span>
+                <select
+                  value={entriesPerPage}
+                  onChange={(e) => setEntriesPerPage(e.target.value)}
+                  className="h-9 px-2 border border-gray-200 rounded-lg text-sm"
+                >
+                  <option value="15">15</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+                <span className="text-sm text-gray-600">entries</span>
+              </div>
+
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search..."
+                className="max-w-xs h-10"
+              />
             </div>
 
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Email */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.email ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="user@example.com"
-                  />
-                  {formErrors.email && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
-                  )}
-                </div>
+            {/* Table */}
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Name</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Login ID</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Broker</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Master</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-700">Position Only</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-700">Action</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Login Time</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Login IP</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-700">Join Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientData.map((client, index) => (
+                    <tr
+                      key={index}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                    >
+                      <td className="p-3 text-gray-900 font-medium">{client.name}</td>
+                      <td className="p-3 text-gray-700">{client.loginId}</td>
+                      <td className="p-3 text-blue-600">{client.broker}</td>
+                      <td className="p-3 text-gray-600 text-sm">{client.master}</td>
+                      <td className="p-3 text-center">
+                        <span className="text-red-600 font-medium">{client.onlyPosition}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <Button size="sm" variant="destructive" className="h-8">
+                          {client.action}
+                        </Button>
+                      </td>
+                      <td className="p-3 text-gray-600 text-sm">{client.loginTime}</td>
+                      <td className="p-3 text-blue-600 text-sm">{client.loginIP}</td>
+                      <td className="p-3 text-gray-600">{client.joinTime}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                {/* Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.password ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter password"
-                  />
-                  {formErrors.password && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>
-                  )}
-                </div>
+            {/* Pagination */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
+              <span className="text-sm text-gray-600">
+                Showing 1 to 2 of 2 entries
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled className="h-9">
+                  Previous
+                </Button>
+                <Button size="sm" className="h-9 bg-gray-900 text-white">
+                  1
+                </Button>
+                <Button variant="outline" size="sm" disabled className="h-9">
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-                {/* Confirm Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm Password *
-                  </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Confirm password"
-                  />
-                  {formErrors.confirmPassword && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.confirmPassword}</p>
-                  )}
-                </div>
+      {/* Create User Modal - Using shadcn Dialog */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="sm:max-w-lg w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900">Create New User</DialogTitle>
+          </DialogHeader>
 
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.name ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter full name"
-                  />
-                  {formErrors.name && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
-                  )}
-                </div>
+          <form onSubmit={handleCreateUser} className="space-y-4 mt-4">
+            {/* Email */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">Email *</Label>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`h-12 ${formErrors.email ? 'border-red-500 focus:border-red-500' : ''}`}
+                placeholder="user@example.com"
+              />
+              {formErrors.email && (
+                <p className="text-red-500 text-sm">{formErrors.email}</p>
+              )}
+            </div>
 
-
-
-
+            {/* Password Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-gray-700 font-medium">Password *</Label>
+                <Input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`h-12 ${formErrors.password ? 'border-red-500 focus:border-red-500' : ''}`}
+                  placeholder="Enter password"
+                />
+                {formErrors.password && (
+                  <p className="text-red-500 text-sm">{formErrors.password}</p>
+                )}
               </div>
 
-              {/* Form Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? "Creating..." : "Create User"}
-                </button>
+              <div className="space-y-2">
+                <Label className="text-gray-700 font-medium">Confirm Password *</Label>
+                <Input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`h-12 ${formErrors.confirmPassword ? 'border-red-500 focus:border-red-500' : ''}`}
+                  placeholder="Confirm password"
+                />
+                {formErrors.confirmPassword && (
+                  <p className="text-red-500 text-sm">{formErrors.confirmPassword}</p>
+                )}
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label className="text-gray-700 font-medium">Full Name *</Label>
+              <Input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className={`h-12 ${formErrors.name ? 'border-red-500 focus:border-red-500' : ''}`}
+                placeholder="Enter full name"
+              />
+              {formErrors.name && (
+                <p className="text-red-500 text-sm">{formErrors.name}</p>
+              )}
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateForm(false)}
+                className="h-11"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="h-11 bg-gray-900 hover:bg-gray-800 text-white"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creating...
+                  </span>
+                ) : "Create User"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert Modal */}
+      <AlertModal
+        open={alertModal.open}
+        onClose={closeAlert}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
+    </>
   );
 };
 

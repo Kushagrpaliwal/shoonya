@@ -1,39 +1,78 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { AlertModal } from "@/components/ui/alert-modal";
+import Image from "next/image";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [watchlist, setWatchlist] = useState([]); // Initialize watchlist state
+  const [isLoading, setIsLoading] = useState(false);
+  const [watchlist, setWatchlist] = useState([]);
   const router = useRouter();
-  
+
+  // Modal state
+  const [alertModal, setAlertModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    variant: "info"
+  });
+
+  const showAlert = (title, message, variant = "info") => {
+    setAlertModal({ open: true, title, message, variant });
+  };
+
+  const closeAlert = () => {
+    setAlertModal(prev => ({ ...prev, open: false }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST", 
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }), // Send email and password
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await response.json();
-    console.log(data); // Log the response to check for the email
+      const data = await response.json();
+      console.log(data);
 
-    if (response.ok) {
-      // Check if email is present in the response
-      if (data.email) {
-        localStorage.setItem("TradingUserEmail", data.email); // Store email in local storage
-        alert(data.message); // Alert for successful login
-        router.push('/user'); // Redirect to the user dashboard or another page
+      if (response.ok) {
+        if (data.email) {
+          localStorage.setItem("TradingUserEmail", data.email);
+          showAlert("Success", data.message, "success");
+          setTimeout(() => {
+            router.push('/user');
+          }, 1500);
+        } else {
+          showAlert("Error", "Email not found in response.", "error");
+        }
       } else {
-        alert("Email not found in response.");
+        showAlert("Login Failed", data.error || "An error occurred during login.", "error");
+        console.error(data.error);
       }
-    } else {
-      alert(data.error || "An error occurred during login."); // Alert for failed login
-      console.error(data.error);
+    } catch (error) {
+      showAlert("Error", "An error occurred. Please try again.", "error");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -41,21 +80,19 @@ const LoginPage = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const tradingUserEmail = localStorage.getItem("TradingUser Email"); // Ensure the key matches
+        const tradingUserEmail = localStorage.getItem("TradingUser Email");
         if (!tradingUserEmail) {
           console.error("No email found in local storage.");
-          return; // Exit if no email is found
+          return;
         }
 
-        const response = await fetch(`/api/getWatchlist?TradingUser Email=${tradingUserEmail}`); // Adjust the endpoint as necessary
+        const response = await fetch(`/api/getWatchlist?TradingUser Email=${tradingUserEmail}`);
         if (!response.ok) {
           throw new Error('Failed to fetch user data');
         }
         const data = await response.json();
-        
-        // Check if exchanges exist in the response
+
         if (data.exchanges) {
-          // Set the watchlist with the user's exchanges
           setWatchlist(data.exchanges.map(exchange => ({
             exchange: exchange.name,
             token: exchange.token
@@ -72,52 +109,96 @@ const LoginPage = () => {
   }, []);
 
   return (
-    <div>
-      <section className="bg-gray-50 ">
-        <div className="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
-          <a href="#" className="flex items-center mb-6 text-2xl font-semibold text-gray-900 ">
-            <img className="w-8 h-8 mr-2" src="https://flowbite.s3.amazonaws.com/blocks/marketing-ui/logo.svg" alt="logo"/>
-            Trading  
-          </a>
-          <div className="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 ">
-            <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
-              <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl ">
-                Login to your account
-              </h1>
-              <form className="space-y-4 md:space-y-6" onSubmit={handleSubmit}>
-                <div>
-                  <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900 ">Your email</label>
-                  <input 
-                    type="email" 
-                    name="email" 
-                    id="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 " 
-                    placeholder="name@company.com" 
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-900 ">Password</label>
-                  <input 
-                    type="password" 
-                    name="password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    id="password" 
-                    placeholder="••••••••" 
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5" 
-                    required
-                  />
-                </div>
-                <button type="submit" className="w-full text-white bg-black hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center ">Login</button>
-              </form>
+    <>
+      <div className="flex min-h-screen items-center justify-center bg-zinc-100 p-4">
+        <Card className="w-full max-w-md bg-white shadow-soft-lg border-0 rounded-2xl">
+          <CardHeader className="space-y-1 pb-6">
+            <div className="flex flex-row items-center justify-center mb-8 gap-4">
+              <Image
+                src="/image.png"
+                width={56}
+                height={56}
+                alt="UrbanExchange Logo"
+                className="h-14 w-auto"
+              />
+              <span className="text-3xl font-bold text-zinc-900 tracking-tight">UrbanExchange</span>
             </div>
-          </div>
-        </div>
-      </section>
-    </div>
+            <CardTitle className="text-2xl font-bold text-center text-zinc-900">
+              Welcome back
+            </CardTitle>
+            <CardDescription className="text-center text-zinc-500">
+              Enter your credentials to access your trading account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-zinc-700 font-medium">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="h-12 bg-zinc-50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-400 rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-zinc-700 font-medium">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="h-12 bg-zinc-50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-400 rounded-xl"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white font-medium transition-all duration-200 rounded-xl shadow-lg hover:shadow-xl"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Signing in...
+                  </span>
+                ) : "Sign In"}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="flex justify-center pt-2 pb-6">
+            <p className="text-sm text-zinc-500">
+              Don&apos;t have an account?{" "}
+              <a href="/signup" className="font-medium text-zinc-900 hover:underline transition-colors">
+                Sign up
+              </a>
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        open={alertModal.open}
+        onClose={closeAlert}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
+    </>
   );
 }
 

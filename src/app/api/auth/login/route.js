@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/app/lib/connectToDatabase";
-import User from "@/app/models/User"; 
+import User from "@/app/models/User";
 
 export async function POST(req) {
   try {
@@ -10,22 +10,9 @@ export async function POST(req) {
     // Find the user by email
     let user = await User.findOne({ email });
 
-    // If user not found, create a new one
+    // If user not found, return error
     if (!user) {
-      user = new User({
-        email,
-        password, // You can later hash this before saving (recommended)
-        name: "New User",
-        loginId: Date.now().toString(), // Generate a simple unique ID
-      });
-      await user.save();
-
-      return NextResponse.json({
-        message: "User created and logged in successfully",
-        email: user.email,
-        name: user.name,
-        loginId: user.loginId
-      }, { status: 201 });
+      return NextResponse.json({ error: "User not found. Please sign up." }, { status: 404 });
     }
 
     // Check if password matches (plain text comparison)
@@ -37,8 +24,8 @@ export async function POST(req) {
     return NextResponse.json({
       message: "Login successful",
       email: user.email,
-      name: user.name,
-      loginId: user.loginId
+      // name: user.name, // removed as likely not in schema
+      // loginId: user.loginId // removed as likely not in schema
     }, { status: 200 });
 
   } catch (error) {
