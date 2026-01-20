@@ -470,13 +470,12 @@ const LiveMarketData = () => {
       symbol: modalData.ts,
       netprice: modalData.lp,
       token: modalData.tk,
-      token: modalData.tk,
       exchange: modalData.e,
-      high: modalData.h,
-      low: modalData.l,
-      open: modalData.o,
-      close: modalData.c,
-      ltp: modalData.lp
+      high: modalData.h || 0,
+      low: modalData.l || 0,
+      open: modalData.o || 0,
+      close: modalData.c || 0,
+      ltp: modalData.lp || 0
     };
 
     try {

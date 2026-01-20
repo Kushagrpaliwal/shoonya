@@ -23,18 +23,20 @@ import {
   LinearScale,
   PointElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
   TimeScale
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Pie } from 'react-chartjs-2';
 
 // Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -66,24 +68,108 @@ export default function SummaryReport() {
           const response = await fetch(`/api/getUsers?email=${email}`);
           const result = await response.json();
           if (result.users && result.users.length > 0) {
-            const allOrders = result.users[0].totalOrders || [];
+            const user = result.users[0];
+            const allOrders = (user.totalOrders && user.totalOrders.length > 0)
+              ? user.totalOrders
+              : [...(user.buyOrders || []), ...(user.sellOrders || [])];
 
-            // Map all orders to match the expected structure
-            const formattedTrades = allOrders.map(trade => ({
-              ...trade,
-              tradeId: trade._id?.toString() || trade.tradeId,
-              entryPrice: parseFloat(trade.entryPrice || trade.price || 0),
-              exitPrice: parseFloat(trade.exitPrice || 0),
-              quantity: parseFloat(trade.quantity || 0),
-              side: trade.originalArray === 'buyOrders' ? 'BUY' : 'SELL', // Force derivation from originalArray
-              originalArray: trade.originalArray, // Ensure this is preserved
-              instrument: trade.symbol,
-              brokerage: parseFloat(trade.brokerage || 0),
-              charges: parseFloat(trade.charges || 0),
-              status: trade.status || 'unknown'
-            }));
+            // Match orders to create trades (FIFO)
+            const sortedOrders = allOrders
+              .filter(o => {
+                const status = (o.status || "").toLowerCase();
+                return status === 'completed' || status === 'executed';
+              })
+              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-            setTrades(formattedTrades);
+            const positions = {}; // { Symbol: [open_orders] }
+            const trades = [];
+
+            sortedOrders.forEach(order => {
+              const sym = order.symbol;
+              if (!sym) return;
+
+              const side = order.originalArray === 'buyOrders' ? 'BUY' : 'SELL';
+              const quantity = parseFloat(order.quantity || 0);
+              const price = parseFloat(order.entryPrice || order.price || 0);
+
+              if (!positions[sym]) positions[sym] = [];
+
+              if (positions[sym].length > 0 && positions[sym][0].side !== side) {
+                let remainingQty = quantity;
+
+                while (remainingQty > 0 && positions[sym].length > 0) {
+                  const matchOrder = positions[sym][0];
+                  const matchQty = Math.min(remainingQty, matchOrder.remainingQty);
+
+                  const isLong = matchOrder.side === 'BUY';
+                  const entryPrice = matchOrder.price;
+                  const exitPrice = price;
+
+                  trades.push({
+                    tradeId: `${matchOrder._id}-${order._id}`,
+                    _id: matchOrder._id,
+                    symbol: sym,
+                    instrument: sym,
+                    quantity: matchQty,
+                    entryPrice: entryPrice,
+                    exitPrice: exitPrice,
+                    side: isLong ? 'BUY' : 'SELL',
+                    originalArray: isLong ? 'buyOrders' : 'sellOrders',
+                    timestamp: order.timestamp,
+                    brokerage: ((matchOrder.brokerage || 20) / matchOrder.quantity * matchQty) + ((order.brokerage || 20) / order.quantity * matchQty),
+                    charges: ((matchOrder.charges || 0) / matchOrder.quantity * matchQty) + ((order.charges || 0) / order.quantity * matchQty),
+                    status: 'completed',
+                    tradeStatus: 'COMPLETED'
+                  });
+
+                  remainingQty -= matchQty;
+                  matchOrder.remainingQty -= matchQty;
+
+                  if (matchOrder.remainingQty <= 0.0001) {
+                    positions[sym].shift();
+                  }
+                }
+
+                if (remainingQty > 0.0001) {
+                  positions[sym].push({
+                    ...order,
+                    side: side,
+                    price: price,
+                    quantity: quantity,
+                    remainingQty: remainingQty
+                  });
+                }
+
+              } else {
+                positions[sym].push({
+                  ...order,
+                  side: side,
+                  price: price,
+                  quantity: quantity,
+                  remainingQty: quantity
+                });
+              }
+            });
+
+            // Add remaining open positions
+            Object.keys(positions).forEach(sym => {
+              positions[sym].forEach(pos => {
+                trades.push({
+                  ...pos,
+                  tradeId: pos._id,
+                  quantity: pos.remainingQty,
+                  entryPrice: pos.price,
+                  exitPrice: 0,
+                  tradeStatus: 'OPEN',
+                  originalArray: pos.originalArray || (pos.side === 'BUY' ? 'buyOrders' : 'sellOrders'),
+                  // Ensure timestamp is preserved for sorting
+                  timestamp: pos.timestamp,
+                  status: 'completed' // It is a completed order
+                });
+              });
+            });
+
+            setTrades(trades);
           } else {
             setTrades(mockCompletedTrades);
           }
@@ -111,9 +197,12 @@ export default function SummaryReport() {
     return Array.from(m).filter(Boolean);
   }, [trades]);
 
-  // Filter trades
+  // Filter trades - only show completed ones
   const filteredTrades = useMemo(() => {
     let result = [...trades];
+
+    // Filter to only include completed trades
+    result = result.filter((t) => t.status === 'completed');
 
     if (searchTerm) {
       result = result.filter((t) =>
@@ -141,15 +230,27 @@ export default function SummaryReport() {
     return result.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }, [trades, searchTerm, market, script, dateFrom, dateTo]);
 
-  // Calculate summary (Invested & Gains)
+  // Calculate summary (Invested for BUYs & Gains for SELLs)
   const summary = useMemo(() => {
     const totalTrades = filteredTrades.length;
-    // Invested Amount: Sum of (Entry Price * Quantity) for all trades
-    const totalInvested = filteredTrades.reduce((sum, t) => sum + (t.entryPrice * t.quantity), 0);
+    let totalInvested = 0;
+    let totalGains = 0;
 
-    // Total Gains: Sum of (Exit Price - Entry Price) * Quantity * SideMultiplier (Gross PnL essentially)
-    // Note: calculatePnL handles the side logic (Buy vs Sell short)
-    const totalGains = filteredTrades.reduce((sum, t) => sum + calculatePnL(t), 0);
+    filteredTrades.forEach(t => {
+      const qty = t.quantity;
+      const entryVal = t.entryPrice * qty;
+      const exitVal = (t.exitPrice || 0) * qty;
+      const isLong = t.side === 'BUY';
+
+      if (isLong) {
+        totalInvested += entryVal;
+        totalGains += exitVal;
+      } else {
+        // Short
+        totalGains += entryVal;
+        totalInvested += exitVal;
+      }
+    });
 
     const winningTrades = filteredTrades.filter((t) => calculatePnL(t) > 0).length;
     const losingTrades = filteredTrades.filter((t) => calculatePnL(t) < 0).length;
@@ -163,12 +264,17 @@ export default function SummaryReport() {
     };
   }, [filteredTrades]);
 
-  // Symbol Analytics Grouping
+  // Symbol Analytics Grouping - Invested for BUYs, Gains for SELLs
   const symbolAnalytics = useMemo(() => {
     const grouped = {};
 
     filteredTrades.forEach(trade => {
       const sym = trade.symbol;
+      const isLong = trade.side === 'BUY';
+      const quantity = trade.quantity;
+      const entryVal = trade.entryPrice * quantity;
+      const exitVal = (trade.exitPrice || 0) * quantity;
+
       if (!grouped[sym]) {
         grouped[sym] = {
           symbol: sym,
@@ -179,16 +285,21 @@ export default function SummaryReport() {
         };
       }
 
-      const pnl = calculatePnL(trade);
-      const invested = trade.entryPrice * trade.quantity;
+      if (isLong) {
+        // Long Trade: Entry is Invested, Exit is Gains
+        grouped[sym].totalInvested += entryVal;
+        grouped[sym].totalGains += exitVal;
+      } else {
+        // Short Trade: Entry (Sell) is Gains, Exit (Buy) is Invested
+        grouped[sym].totalGains += entryVal;
+        grouped[sym].totalInvested += exitVal;
+      }
 
       grouped[sym].trades.push(trade);
-      grouped[sym].totalInvested += invested;
-      grouped[sym].totalGains += pnl;
       grouped[sym].count += 1;
     });
 
-    return Object.values(grouped).sort((a, b) => b.totalGains - a.totalGains); // Sort by gains descending
+    return Object.values(grouped).sort((a, b) => b.totalGains - a.totalGains);
   }, [filteredTrades]);
 
   // Prepare chart data for selected symbol
@@ -196,29 +307,22 @@ export default function SummaryReport() {
     if (!selectedSymbolAnalytics) return null;
 
     const symbolData = selectedSymbolAnalytics;
-    // Sort trades by timestamp for the chart
-    const sortedTrades = [...symbolData.trades].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    const labels = sortedTrades.map((t, index) => `#${index + 1} (${t.side})`);
-    const entryData = sortedTrades.map(t => t.entryPrice);
-    const exitData = sortedTrades.map(t => t.exitPrice);
 
     return {
-      labels,
+      labels: ['Total Invested (BUY)', 'Total Gains (SELL)'],
       datasets: [
         {
-          label: 'Entry Price',
-          data: entryData,
-          backgroundColor: 'rgba(59, 130, 246, 0.7)', // Blue
-          barPercentage: 0.6,
-          categoryPercentage: 0.8
-        },
-        {
-          label: 'Exit Price',
-          data: exitData,
-          backgroundColor: 'rgba(249, 115, 22, 0.7)', // Orange
-          barPercentage: 0.6,
-          categoryPercentage: 0.8
+          label: 'Amount',
+          data: [symbolData.totalInvested, symbolData.totalGains],
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.8)', // Blue for Invested
+            'rgba(34, 197, 94, 0.8)', // Green for Gains
+          ],
+          borderColor: [
+            'rgba(59, 130, 246, 1)',
+            'rgba(34, 197, 94, 1)',
+          ],
+          borderWidth: 2,
         }
       ]
     };
@@ -229,48 +333,35 @@ export default function SummaryReport() {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
-        display: true, // Show legend for Entry vs Exit
+        position: 'bottom',
+        display: true,
+        labels: {
+          padding: 20,
+          font: {
+            size: 14
+          }
+        }
       },
       title: {
         display: true,
-        text: `Entry vs Exit Prices for ${selectedSymbolAnalytics?.symbol || ''}`,
+        text: `Invested vs Gains for ${selectedSymbolAnalytics?.symbol || ''}`,
+        font: {
+          size: 16,
+          weight: 'bold'
+        },
+        padding: {
+          top: 10,
+          bottom: 20
+        }
       },
       tooltip: {
         callbacks: {
           label: function (context) {
-            return `${context.dataset.label}: ₹${context.parsed.y.toFixed(2)}`;
-          },
-          afterBody: function (tooltipItems) {
-            const dataIndex = tooltipItems[0].dataIndex;
-            const trade = selectedSymbolAnalytics?.trades[dataIndex];
-            if (trade) {
-              const pnl = calculatePnL(trade);
-              return `PnL: ₹${pnl.toFixed(2)}`;
-            }
-            return '';
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: 'Trade Sequence'
-        },
-        grid: {
-          display: false
-        }
-      },
-      y: {
-        title: {
-          display: true,
-          text: 'Price (₹)'
-        },
-        ticks: {
-          callback: function (value) {
-            return '₹' + value;
+            const label = context.label || '';
+            const value = context.parsed;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${label}: ₹${value.toFixed(2)} (${percentage}%)`;
           }
         }
       }
@@ -297,18 +388,21 @@ export default function SummaryReport() {
 
   // Export CSV
   const exportToCSV = () => {
-    const headers = ["Date", "Symbol", "Market", "Side", "Qty", "Entry", "Exit", "Invested", "Gains"];
-    const rows = filteredTrades.map((t) => [
-      new Date(t.timestamp).toLocaleDateString(),
-      t.symbol,
-      t.market || t.exchange,
-      t.side || (t.originalArray === "buyOrders" ? "BUY" : "SELL"),
-      t.quantity,
-      t.entryPrice,
-      t.exitPrice,
-      (t.entryPrice * t.quantity).toFixed(2), // Invested
-      calculatePnL(t).toFixed(2),             // Gains
-    ]);
+    const headers = ["Date", "Symbol", "Market", "Side", "Qty", "Entry", "Invested/Gains"];
+    const rows = filteredTrades.map((t) => {
+      const isBuy = t.side === 'BUY' || t.originalArray === 'buyOrders';
+      const value = (t.entryPrice * t.quantity).toFixed(2); // Same calculation for both BUY and SELL
+
+      return [
+        new Date(t.timestamp).toLocaleDateString(),
+        t.symbol,
+        t.market || t.exchange,
+        t.side || (t.originalArray === "buyOrders" ? "BUY" : "SELL"),
+        t.quantity,
+        t.entryPrice,
+        value,
+      ];
+    });
 
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -361,24 +455,24 @@ export default function SummaryReport() {
       </Card>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card className="bg-white shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Total Trades</p>
+            <p className="text-xs text-gray-500">Total Trades (Completed)</p>
             <p className="text-2xl font-bold text-gray-900">{summary.totalTrades}</p>
           </CardContent>
         </Card>
         <Card className="bg-white shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Total Invested Amount</p>
+            <p className="text-xs text-gray-500">Total Invested (BUY Trades)</p>
             <p className="text-2xl font-bold text-blue-600">₹{summary.totalInvested.toFixed(2)}</p>
           </CardContent>
         </Card>
-        <Card className={`shadow-sm ${summary.totalGains >= 0 ? "bg-green-50" : "bg-red-50"}`}>
+        <Card className="bg-green-50 shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Total Gains</p>
-            <p className={`text-2xl font-bold ${summary.totalGains >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {summary.totalGains >= 0 ? "+" : ""}₹{summary.totalGains.toFixed(2)}
+            <p className="text-xs text-gray-500">Total Gains (SELL Trades)</p>
+            <p className="text-2xl font-bold text-green-600">
+              ₹{summary.totalGains.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -485,8 +579,8 @@ export default function SummaryReport() {
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-500">Invest: <span className="text-gray-900 font-medium">₹{item.totalInvested.toFixed(0)}</span></span>
-                      <span className={`font-bold ${item.totalGains >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {item.totalGains >= 0 ? '+' : ''}₹{item.totalGains.toFixed(0)}
+                      <span className="font-bold text-green-600">
+                        ₹{item.totalGains.toFixed(0)}
                       </span>
                     </div>
                   </div>
@@ -503,11 +597,11 @@ export default function SummaryReport() {
           </CardHeader>
           <CardContent className="h-[400px] flex items-center justify-center">
             {selectedSymbolAnalytics ? (
-              <Bar options={chartOptions} data={chartData} />
+              <Pie options={chartOptions} data={chartData} />
             ) : (
               <div className="text-center text-gray-400">
                 <BarChart2 className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>Select a symbol from the list to view PnL Bar Graph</p>
+                <p>Select a symbol from the list to view Invested vs Gains Pie Chart</p>
               </div>
             )}
           </CardContent>
@@ -548,17 +642,14 @@ export default function SummaryReport() {
                       <th className="p-3 text-center text-sm font-medium text-gray-600">Side</th>
                       <th className="p-3 text-center text-sm font-medium text-gray-600">Qty</th>
                       <th className="p-3 text-right text-sm font-medium text-gray-600">Entry</th>
-                      <th className="p-3 text-right text-sm font-medium text-gray-600">Exit</th>
-                      <th className="p-3 text-right text-sm font-medium text-gray-600">Invested</th>
-                      <th className="p-3 text-right text-sm font-medium text-gray-600">Net Gains</th>
+                      <th className="p-3 text-right text-sm font-medium text-gray-600">Invested/Gains</th>
                       <th className="p-3 text-center text-sm font-medium text-gray-600">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedTrades.map((trade, index) => {
-                      const pnl = calculatePnL(trade);
-                      const invested = trade.entryPrice * trade.quantity;
                       const isBuy = trade.side === "BUY" || trade.originalArray === "buyOrders";
+                      const amount = trade.entryPrice * trade.quantity; // Same calculation for both
 
                       return (
                         <tr
@@ -593,15 +684,8 @@ export default function SummaryReport() {
                           <td className="p-3 text-right text-sm text-gray-700">
                             ₹{trade.entryPrice}
                           </td>
-                          <td className="p-3 text-right text-sm text-gray-700">
-                            ₹{trade.exitPrice}
-                          </td>
-                          <td className="p-3 text-right text-sm font-medium text-blue-600">
-                            ₹{invested.toFixed(2)}
-                          </td>
-                          <td className={`p-3 text-right text-sm font-semibold ${pnl >= 0 ? "text-green-600" : "text-red-600"
-                            }`}>
-                            {pnl >= 0 ? "+" : ""}₹{pnl.toFixed(2)}
+                          <td className={`p-3 text-right text-sm font-semibold ${isBuy ? "text-blue-600" : "text-green-600"}`}>
+                            ₹{amount.toFixed(2)}
                           </td>
                           <td className="p-3 text-center text-sm">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${trade.status === 'completed' ? 'bg-green-100 text-green-700' :

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useWebSocket } from "@/app/lib/WebSocketContext";
 import {
     ShieldAlert,
     ShieldCheck,
@@ -15,6 +16,7 @@ import {
     Repeat,
     Settings,
     Save,
+    TrendingUp,
 } from "lucide-react";
 import {
     calculatePnL,
@@ -106,19 +108,59 @@ function MetricCard({ icon: Icon, title, value, limit, status, note }) {
 }
 
 export default function RiskMonitor() {
+    const { isConnected, liveData, subscribe, unsubscribe } = useWebSocket();
     const [trades, setTrades] = useState([]);
+    const [pendingTrades, setPendingTrades] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showSettings, setShowSettings] = useState(false);
+    const [maxHighRiskTrades, setMaxHighRiskTrades] = useState(5);
+    const [saving, setSaving] = useState(false);
 
-    // User limits (from localStorage)
-    const [limits, setLimits] = useState({
-        maxDailyLoss: 5000,
-        maxTradesPerDay: 10,
-        maxConsecutiveLosses: 3,
-    });
+    // Load settings
+    useEffect(() => {
+        const loadSettings = async () => {
+            const email = localStorage.getItem("TradingUserEmail");
+            if (email) {
+                try {
+                    const response = await fetch(`/api/riskSettings?email=${email}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.maxHighRiskTrades) {
+                            setMaxHighRiskTrades(data.maxHighRiskTrades);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Failed to load settings:", error);
+                }
+            }
+        };
+        loadSettings();
+    }, []);
 
-    // Temp limits for editing
-    const [tempLimits, setTempLimits] = useState(limits);
+    const saveLimit = async () => {
+        setSaving(true);
+        try {
+            const email = localStorage.getItem("TradingUserEmail");
+            if (!email) return;
+
+            const response = await fetch('/api/riskSettings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    maxHighRiskTrades
+                })
+            });
+
+            if (!response.ok) {
+                alert("Failed to save limit");
+            }
+        } catch (error) {
+            console.error("Error saving limit:", error);
+            alert("Error saving limit");
+        } finally {
+            setSaving(false);
+        }
+    };
 
     // Load data
     useEffect(() => {
@@ -135,27 +177,24 @@ export default function RiskMonitor() {
                 const resultUsers = await responseUsers.json();
                 if (resultUsers.users && resultUsers.users.length > 0) {
                     const allOrders = resultUsers.users[0].totalOrders || [];
+
+                    // Get completed trades
                     const completedTrades = getCompletedTrades(allOrders);
                     setTrades(completedTrades);
+
+                    // Get pending trades
+                    const pending = allOrders.filter(order => order.status === 'pending');
+                    setPendingTrades(pending);
                 } else {
                     setTrades([]);
+                    setPendingTrades([]);
                 }
 
-                // 2. Fetch Risk Settings from Backend
-                const responseSettings = await fetch(`/api/riskSettings?email=${email}`);
-                if (responseSettings.ok) {
-                    const settings = await responseSettings.json();
-                    const newLimits = {
-                        maxDailyLoss: settings.maxDailyLoss || 5000,
-                        maxTradesPerDay: settings.maxTradesPerDay || 10,
-                        maxConsecutiveLosses: settings.maxConsecutiveLosses || 3
-                    };
-                    setLimits(newLimits);
-                    setTempLimits(newLimits);
-                }
+                // Risk settings fetch removed
             } catch (error) {
                 console.error("Error fetching data:", error);
                 setTrades([]);
+                setPendingTrades([]);
             } finally {
                 setLoading(false);
             }
@@ -164,6 +203,29 @@ export default function RiskMonitor() {
         fetchCheck();
     }, []);
 
+    // Subscribe to pending trades for live data  
+    useEffect(() => {
+        if (!isConnected || pendingTrades.length === 0) return;
+
+        // Subscribe to all pending trade symbols
+        const instrumentsString = pendingTrades
+            .map(trade => `${trade.exchange || trade.market}|${trade.token}`)
+            .join('#');
+
+        if (instrumentsString) {
+            subscribe(instrumentsString, "depth");
+            console.log("Subscribed to pending trades:", instrumentsString);
+        }
+
+        // Cleanup: unsubscribe when component unmounts or pending trades change
+        return () => {
+            if (instrumentsString) {
+                unsubscribe(instrumentsString, "depth");
+                console.log("Unsubscribed from pending trades");
+            }
+        };
+    }, [isConnected, pendingTrades, subscribe, unsubscribe]);
+
     // Calculate daily metrics
     const dailyMetrics = useMemo(() => {
         const today = new Date();
@@ -171,120 +233,101 @@ export default function RiskMonitor() {
         const todayPnL = calculateNetPnL(todayTrades);
         const consecutiveLosses = calculateConsecutiveLosses(trades);
 
+        // Calculate Total Buy and Total Sell for today's trades
+        let totalBuyValue = 0;
+        let totalSellValue = 0;
+
+        todayTrades.forEach(trade => {
+            if (trade.entryPrice && trade.exitPrice && trade.quantity) {
+                const entryVal = trade.entryPrice * trade.quantity;
+                const exitVal = trade.exitPrice * trade.quantity;
+                const isLong = trade.side === "BUY" || trade.originalArray === "buyOrders";
+
+                if (isLong) {
+                    totalBuyValue += entryVal;
+                    totalSellValue += exitVal;
+                } else {
+                    totalSellValue += entryVal;
+                    totalBuyValue += exitVal;
+                }
+            }
+        });
+
+        // Add Pending Trades to Totals
+        pendingTrades.forEach(trade => {
+            const qty = Number(trade.quantity) || 0;
+            const entry = Number(trade.entryPrice || trade.price) || 0;
+            const val = qty * entry;
+            const isLong = trade.side === "BUY" || trade.originalArray === "buyOrders";
+
+            if (isLong) {
+                totalBuyValue += val;
+            } else {
+                totalSellValue += val;
+            }
+        });
+
         return {
             todayPnL,
             todayTradeCount: todayTrades.length,
             consecutiveLosses: consecutiveLosses.current,
             maxConsecutiveLosses: consecutiveLosses.max,
+            totalBuyValue,
+            totalSellValue
         };
-    }, [trades]);
+    }, [trades, pendingTrades]);
 
     // Determine overall risk status
     const riskStatus = useMemo(() => {
-        const { todayPnL, todayTradeCount, consecutiveLosses } = dailyMetrics;
-        const { maxDailyLoss, maxTradesPerDay, maxConsecutiveLosses } = limits;
+        // High risk check simplified
 
-        let violations = 0;
-        let messages = [];
+        // Check active high risk trades
+        let highRiskTradesCount = 0;
+        pendingTrades.forEach(trade => {
+            const isBuy = trade.side === "BUY" || trade.originalArray === "buyOrders";
+            const entry = Number(trade.entryPrice || trade.price) || 0;
 
-        // Check daily loss
-        if (todayPnL <= -maxDailyLoss) {
-            violations += 2;
-            messages.push("Daily loss limit exceeded");
-        } else if (todayPnL <= -maxDailyLoss * 0.7) {
-            violations += 1;
-            messages.push("Approaching daily loss limit");
-        }
+            // Find live data
+            const liveDataItem = liveData.find(data =>
+                data.tk === `${trade.exchange || trade.market}|${trade.token}` ||
+                data.tk === `${trade.exchange || trade.market}_${trade.token}` ||
+                data.tk === trade.token ||
+                data.ts === trade.symbol
+            );
 
-        // Check trade count
-        if (todayTradeCount >= maxTradesPerDay) {
-            violations += 1;
-            messages.push("Maximum trades per day reached");
-        } else if (todayTradeCount >= maxTradesPerDay * 0.8) {
-            violations += 0.5;
-            messages.push("Approaching trade limit");
-        }
+            if (liveDataItem) {
+                const live = liveDataItem;
+                const high = parseFloat(live.h) || 0;
+                const low = parseFloat(live.l) || 0;
 
-        // Check consecutive losses
-        if (consecutiveLosses >= maxConsecutiveLosses) {
-            violations += 1;
-            messages.push("Too many consecutive losses");
-        }
+                if (high > 0 && low > 0 && entry > 0) {
+                    if (isBuy) {
+                        if (low > entry) highRiskTradesCount++;
+                    } else {
+                        if (entry > high) highRiskTradesCount++;
+                    }
+                }
+            }
+        });
 
-        if (violations >= 2) {
+        if (highRiskTradesCount > maxHighRiskTrades) {
             return {
                 status: "LOCKED",
-                title: "High Risk Behavior Detected",
-                message: messages.join(". ") + ". Consider taking a break and reviewing your strategy.",
-            };
-        } else if (violations >= 1) {
-            return {
-                status: "WARNING",
-                title: "Risk Increasing",
-                message: messages.join(". ") + ". Stay disciplined and monitor your trades carefully.",
-            };
-        } else {
-            return {
-                status: "SAFE",
-                title: "Good Discipline",
-                message: "You're trading within your defined limits. Keep up the good work!",
+                title: "High Risk Profile",
+                message: `You have ${highRiskTradesCount} high risk trades (Limit: ${maxHighRiskTrades}). Please reduce exposure.`,
             };
         }
-    }, [dailyMetrics, limits]);
-
-    // Individual metric statuses
-    const metricStatuses = useMemo(() => {
-        const { todayPnL, todayTradeCount, consecutiveLosses } = dailyMetrics;
-        const { maxDailyLoss, maxTradesPerDay, maxConsecutiveLosses } = limits;
 
         return {
-            dailyPnL:
-                todayPnL <= -maxDailyLoss
-                    ? "danger"
-                    : todayPnL <= -maxDailyLoss * 0.7
-                        ? "warning"
-                        : "ok",
-            tradeCount:
-                todayTradeCount >= maxTradesPerDay
-                    ? "danger"
-                    : todayTradeCount >= maxTradesPerDay * 0.8
-                        ? "warning"
-                        : "ok",
-            consecutiveLosses:
-                consecutiveLosses >= maxConsecutiveLosses
-                    ? "danger"
-                    : consecutiveLosses >= maxConsecutiveLosses - 1
-                        ? "warning"
-                        : "ok",
+            status: "SAFE",
+            title: "Low Risk Profile",
+            message: "Your risk levels are within acceptable limits.",
         };
-    }, [dailyMetrics, limits]);
+    }, [liveData, pendingTrades, maxHighRiskTrades]);
 
-    // Save limits
-    const saveLimits = async () => {
-        try {
-            const email = localStorage.getItem("TradingUserEmail");
-            if (!email) return;
+    // metricStatuses removed
 
-            const response = await fetch('/api/riskSettings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email,
-                    ...tempLimits
-                })
-            });
-
-            if (response.ok) {
-                setLimits(tempLimits);
-                setShowSettings(false);
-            } else {
-                alert("Failed to save settings");
-            }
-        } catch (error) {
-            console.error("Error saving limits:", error);
-            alert("Error saving settings");
-        }
-    };
+    // Save limits removed
 
     if (loading) {
         return (
@@ -302,103 +345,31 @@ export default function RiskMonitor() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <ShieldAlert className="h-6 w-6 text-gray-700" />
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900">Risk Awareness Engine</h1>
-                                <p className="text-sm text-gray-500">
-                                    Educational feedback to help you trade responsibly
-                                </p>
-                            </div>
+                            <h1 className="text-xl font-bold text-gray-900">Risk Manager</h1>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowSettings(!showSettings)}
-                            className="gap-2"
-                        >
-                            <Settings className="h-4 w-4" />
-                            Settings
-                        </Button>
+
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-gray-600 font-medium">Max High Risk Limit:</span>
+                            <Input
+                                type="number"
+                                value={maxHighRiskTrades}
+                                onChange={(e) => setMaxHighRiskTrades(Number(e.target.value))}
+                                className="w-20 h-8"
+                            />
+                            <Button
+                                size="sm"
+                                onClick={saveLimit}
+                                disabled={saving}
+                                className="h-8"
+                            >
+                                {saving ? "Saving..." : "Save"}
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Settings Panel */}
-            {showSettings && (
-                <Card className="bg-white shadow-sm mb-6 border-2 border-blue-200">
-                    <CardContent className="p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                            ⚙️ Configure Your Learning Limits
-                        </h3>
-                        <p className="text-sm text-gray-500 mb-6">
-                            These are practice limits to help you develop discipline. They don't block trading -
-                            they only provide visual feedback.
-                        </p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <Label className="text-sm text-gray-700">Max Daily Loss (₹)</Label>
-                                <Input
-                                    type="number"
-                                    value={tempLimits.maxDailyLoss}
-                                    onChange={(e) =>
-                                        setTempLimits({ ...tempLimits, maxDailyLoss: Number(e.target.value) })
-                                    }
-                                    className="mt-1"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Alert when daily loss exceeds this amount
-                                </p>
-                            </div>
-
-                            <div>
-                                <Label className="text-sm text-gray-700">Max Trades Per Day</Label>
-                                <Input
-                                    type="number"
-                                    value={tempLimits.maxTradesPerDay}
-                                    onChange={(e) =>
-                                        setTempLimits({ ...tempLimits, maxTradesPerDay: Number(e.target.value) })
-                                    }
-                                    className="mt-1"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Prevent overtrading by setting a daily limit
-                                </p>
-                            </div>
-
-                            <div>
-                                <Label className="text-sm text-gray-700">Max Consecutive Losses</Label>
-                                <Input
-                                    type="number"
-                                    value={tempLimits.maxConsecutiveLosses}
-                                    onChange={(e) =>
-                                        setTempLimits({ ...tempLimits, maxConsecutiveLosses: Number(e.target.value) })
-                                    }
-                                    className="mt-1"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Alert after this many losses in a row
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 mt-6">
-                            <Button onClick={saveLimits} className="gap-2 bg-gray-900 hover:bg-gray-800">
-                                <Save className="h-4 w-4" />
-                                Save Limits
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setTempLimits(limits);
-                                    setShowSettings(false);
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+            {/* Settings Panel Removed */}
 
             {/* Risk Status Card */}
             <div className="mb-6">
@@ -412,46 +383,214 @@ export default function RiskMonitor() {
             {/* Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <MetricCard
-                    icon={TrendingDown}
-                    title="Today's PnL"
-                    value={`₹${dailyMetrics.todayPnL.toFixed(2)}`}
-                    limit={`₹-${limits.maxDailyLoss}`}
-                    status={metricStatuses.dailyPnL}
-                    note={
-                        dailyMetrics.todayPnL < 0
-                            ? "Losses today. Stay focused."
-                            : "You're in profit today!"
-                    }
+                    icon={Activity}
+                    title="Total Buy"
+                    value={`₹${dailyMetrics.totalBuyValue.toFixed(2)}`}
+                    status="ok"
+                    note="Total value of buy legs today"
                 />
 
                 <MetricCard
                     icon={Activity}
-                    title="Trades Today"
-                    value={dailyMetrics.todayTradeCount}
-                    limit={limits.maxTradesPerDay}
-                    status={metricStatuses.tradeCount}
-                    note={
-                        dailyMetrics.todayTradeCount >= limits.maxTradesPerDay
-                            ? "Consider stopping for today"
-                            : `${limits.maxTradesPerDay - dailyMetrics.todayTradeCount} trades remaining`
-                    }
+                    title="Total Sell"
+                    value={`₹${dailyMetrics.totalSellValue.toFixed(2)}`}
+                    status="ok"
+                    note="Total value of sell legs today"
                 />
 
                 <MetricCard
-                    icon={Repeat}
-                    title="Consecutive Losses"
-                    value={dailyMetrics.consecutiveLosses}
-                    limit={limits.maxConsecutiveLosses}
-                    status={metricStatuses.consecutiveLosses}
+                    icon={dailyMetrics.totalSellValue - dailyMetrics.totalBuyValue >= 0 ? TrendingUp : TrendingDown}
+                    title="Net Profit"
+                    value={`₹${(dailyMetrics.totalSellValue - dailyMetrics.totalBuyValue).toFixed(2)}`}
+                    status={(dailyMetrics.totalSellValue - dailyMetrics.totalBuyValue) >= 0 ? "ok" : "danger"}
                     note={
-                        dailyMetrics.consecutiveLosses >= limits.maxConsecutiveLosses
-                            ? "Take a break and reassess"
-                            : dailyMetrics.consecutiveLosses > 0
-                                ? "Stay calm and stick to your plan"
-                                : "No losing streak currently"
+                        (dailyMetrics.totalSellValue - dailyMetrics.totalBuyValue) >= 0
+                            ? "Gross profit for the day"
+                            : "Gross loss for the day"
                     }
                 />
             </div>
+
+            {/* Pending Trades Table */}
+            <Card className="bg-white shadow-sm mb-6">
+                <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <Clock className="h-5 w-5 text-amber-600" />
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Pending Trades
+                            </h3>
+                        </div>
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-medium">
+                            {pendingTrades.length} Pending
+                        </span>
+                    </div>
+
+                    {pendingTrades.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Clock className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                No Pending Trades
+                            </h3>
+                            <p className="text-gray-500">
+                                All your trades are either completed or you haven't placed any orders yet.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[1700px]">
+                                <thead>
+                                    <tr className="bg-gray-100">
+                                        <th className="p-3 text-left text-sm font-medium text-gray-600">#</th>
+                                        <th className="p-3 text-left text-sm font-medium text-gray-600">Date</th>
+                                        <th className="p-3 text-left text-sm font-medium text-gray-600">Symbol</th>
+                                        <th className="p-3 text-center text-sm font-medium text-gray-600">Market</th>
+                                        <th className="p-3 text-center text-sm font-medium text-gray-600">Side</th>
+                                        <th className="p-3 text-center text-sm font-medium text-gray-600">Qty</th>
+                                        <th className="p-3 text-right text-sm font-medium text-gray-600">Entry Price</th>
+                                        <th className="p-3 text-right text-sm font-medium text-gray-600">Invested/Gains</th>
+                                        <th className="p-3 text-center text-sm font-medium text-gray-600">Risk Status</th>
+                                        <th className="p-3 text-right text-sm font-medium text-blue-600">Live Price</th>
+                                        <th className="p-3 text-right text-sm font-medium text-gray-600">LTP</th>
+                                        <th className="p-3 text-right text-sm font-medium text-green-600">High</th>
+                                        <th className="p-3 text-right text-sm font-medium text-red-600">Low</th>
+                                        <th className="p-3 text-right text-sm font-medium text-gray-600">Open</th>
+                                        <th className="p-3 text-right text-sm font-medium text-gray-600">Close</th>
+                                        <th className="p-3 text-center text-sm font-medium text-gray-600">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pendingTrades.map((trade, index) => {
+                                        const isBuy = trade.side === "BUY" || trade.originalArray === "buyOrders";
+
+                                        // Find live data using same logic as trading page
+                                        const liveDataItem = liveData.find(data =>
+                                            data.tk === `${trade.exchange || trade.market}|${trade.token}` ||
+                                            data.tk === `${trade.exchange || trade.market}_${trade.token}` ||
+                                            data.tk === trade.token ||
+                                            data.ts === trade.symbol
+                                        );
+
+                                        const live = liveDataItem || {};
+                                        // Ensure we parse to float as socket data might be string
+                                        const livePrice = isBuy
+                                            ? (parseFloat(live.sp1) || parseFloat(live.lp))
+                                            : (parseFloat(live.bp1) || parseFloat(live.lp));
+
+                                        // Calculate Invested
+                                        const qty = Number(trade.quantity) || 0;
+                                        const entry = Number(trade.entryPrice || trade.price) || 0;
+                                        const invested = qty * entry;
+
+                                        // Calculate Risk Status
+                                        let riskStatus = "Unknown";
+                                        let riskColor = "text-gray-400";
+
+                                        const high = parseFloat(live.h) || 0;
+                                        const low = parseFloat(live.l) || 0;
+
+                                        if (high > 0 && low > 0 && entry > 0) {
+                                            if (isBuy) {
+                                                if (low > entry) {
+                                                    riskStatus = "High Risk";
+                                                    riskColor = "text-red-600 font-bold";
+                                                } else if (entry > high) {
+                                                    riskStatus = "Low Risk";
+                                                    riskColor = "text-green-600 font-bold";
+                                                } else {
+                                                    riskStatus = "Moderate";
+                                                    riskColor = "text-yellow-600 font-bold";
+                                                }
+                                            } else {
+                                                // Sell Logic (Interchanged)
+                                                if (entry > high) {
+                                                    riskStatus = "High Risk";
+                                                    riskColor = "text-red-600 font-bold";
+                                                } else if (entry < low) {
+                                                    riskStatus = "Low Risk";
+                                                    riskColor = "text-green-600 font-bold";
+                                                } else {
+                                                    riskStatus = "Moderate";
+                                                    riskColor = "text-yellow-600 font-bold";
+                                                }
+                                            }
+                                        }
+
+                                        return (
+                                            <tr
+                                                key={trade._id || index}
+                                                className="border-b border-gray-100 hover:bg-gray-50"
+                                            >
+                                                <td className="p-3 text-sm text-gray-600">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="p-3 text-sm text-gray-600">
+                                                    {new Date(trade.timestamp).toLocaleDateString()}
+                                                    <br />
+                                                    <span className="text-xs text-gray-400">
+                                                        {new Date(trade.timestamp).toLocaleTimeString()}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-sm font-medium text-gray-900">
+                                                    {trade.symbol}
+                                                </td>
+                                                <td className="p-3 text-center text-sm text-gray-600">
+                                                    {trade.market || trade.exchange}
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    <span
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium ${isBuy
+                                                            ? "bg-green-100 text-green-700"
+                                                            : "bg-red-100 text-red-700"
+                                                            }`}
+                                                    >
+                                                        {isBuy ? "BUY" : "SELL"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-center text-sm text-gray-700">
+                                                    {trade.quantity}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-gray-700">
+                                                    ₹{Number(trade.entryPrice || trade.price || 0).toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-gray-700 font-medium">
+                                                    ₹{invested.toFixed(2)}
+                                                </td>
+                                                <td className={`p-3 text-center text-sm ${riskColor}`}>
+                                                    {riskStatus}
+                                                </td>
+                                                <td className="p-3 text-right text-sm font-semibold text-blue-600">
+                                                    {livePrice ? `₹${livePrice.toFixed(2)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-gray-700">
+                                                    {live.lp ? `₹${Number(live.lp).toFixed(2)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-green-600">
+                                                    {live.h ? `₹${Number(live.h).toFixed(2)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-red-600">
+                                                    {live.l ? `₹${Number(live.l).toFixed(2)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-gray-700">
+                                                    {live.o ? `₹${Number(live.o).toFixed(2)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right text-sm text-gray-700">
+                                                    {live.c ? `₹${Number(live.c).toFixed(2)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-center text-sm">
+                                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                        {trade.status || 'pending'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Educational Messages */}
             <Card className="bg-white shadow-sm">

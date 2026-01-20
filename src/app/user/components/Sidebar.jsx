@@ -81,7 +81,6 @@ const sidebarItems = [
     links: [
       { name: "Inventory", path: "/user/inventory", icon: Package },
       { name: "Risk Monitor", path: "/user/risk", icon: ShieldAlert },
-      { name: "Mistake Tracker", path: "/user/mistakes", icon: AlertTriangle },
     ],
   },
   {
@@ -92,7 +91,6 @@ const sidebarItems = [
     links: [
       { name: "Ledger", path: "/user/ledger", icon: ClipboardList },
       { name: "Session Summary", path: "/user/session", icon: Calendar },
-      { name: "Brokerage", path: "/user/reports/brokrage", icon: Receipt },
     ],
   },
 ];

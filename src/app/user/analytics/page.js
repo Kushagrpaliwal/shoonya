@@ -125,9 +125,90 @@ export default function AnalyticsDashboard() {
                 const response = await fetch(`/api/getUsers?email=${email}`);
                 const result = await response.json();
                 if (result.users && result.users.length > 0) {
-                    const allOrders = result.users[0].totalOrders || [];
-                    const completedTrades = getCompletedTrades(allOrders);
-                    setTrades(completedTrades);
+                    const user = result.users[0];
+                    const allOrders = (user.totalOrders && user.totalOrders.length > 0)
+                        ? user.totalOrders
+                        : [...(user.buyOrders || []), ...(user.sellOrders || [])];
+
+                    // Match orders to create trades (FIFO)
+                    const sortedOrders = allOrders
+                        .filter(o => {
+                            const status = (o.status || "").toLowerCase();
+                            return status === 'completed' || status === 'executed';
+                        })
+                        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+                    const positions = {}; // { Symbol: [open_orders] }
+                    const trades = [];
+
+                    sortedOrders.forEach(order => {
+                        const sym = order.symbol;
+                        if (!sym) return;
+
+                        const side = order.originalArray === 'buyOrders' ? 'BUY' : 'SELL';
+                        const quantity = parseFloat(order.quantity || 0);
+                        const price = parseFloat(order.entryPrice || order.price || 0);
+
+                        if (!positions[sym]) positions[sym] = [];
+
+                        if (positions[sym].length > 0 && positions[sym][0].side !== side) {
+                            let remainingQty = quantity;
+
+                            while (remainingQty > 0 && positions[sym].length > 0) {
+                                const matchOrder = positions[sym][0];
+                                const matchQty = Math.min(remainingQty, matchOrder.remainingQty);
+
+                                const isLong = matchOrder.side === 'BUY';
+                                const entryPrice = matchOrder.price;
+                                const exitPrice = price;
+
+                                trades.push({
+                                    tradeId: `${matchOrder._id}-${order._id}`,
+                                    _id: matchOrder._id,
+                                    symbol: sym,
+                                    instrument: sym,
+                                    quantity: matchQty,
+                                    entryPrice: entryPrice,
+                                    exitPrice: exitPrice,
+                                    side: isLong ? 'BUY' : 'SELL',
+                                    originalArray: isLong ? 'buyOrders' : 'sellOrders',
+                                    timestamp: order.timestamp,
+                                    brokerage: ((matchOrder.brokerage || 20) / matchOrder.quantity * matchQty) + ((order.brokerage || 20) / order.quantity * matchQty),
+                                    charges: ((matchOrder.charges || 0) / matchOrder.quantity * matchQty) + ((order.charges || 0) / order.quantity * matchQty),
+                                    status: 'completed',
+                                    tradeStatus: 'COMPLETED'
+                                });
+
+                                remainingQty -= matchQty;
+                                matchOrder.remainingQty -= matchQty;
+
+                                if (matchOrder.remainingQty <= 0.0001) {
+                                    positions[sym].shift();
+                                }
+                            }
+
+                            if (remainingQty > 0.0001) {
+                                positions[sym].push({
+                                    ...order,
+                                    side: side,
+                                    price: price,
+                                    quantity: quantity,
+                                    remainingQty: remainingQty
+                                });
+                            }
+
+                        } else {
+                            positions[sym].push({
+                                ...order,
+                                side: side,
+                                price: price,
+                                quantity: quantity,
+                                remainingQty: quantity
+                            });
+                        }
+                    });
+
+                    setTrades(trades);
                 } else {
                     setTrades(mockCompletedTrades);
                 }

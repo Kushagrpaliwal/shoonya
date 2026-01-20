@@ -25,7 +25,7 @@ function SummaryCard({ title, value, subtitle, positive }) {
         <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-sm text-gray-500">{title}</p>
             <p className={`text-2xl font-bold ${positive === true ? "text-green-600" :
-                    positive === false ? "text-red-600" : "text-gray-900"
+                positive === false ? "text-red-600" : "text-gray-900"
                 }`}>
                 {value}
             </p>
@@ -48,13 +48,106 @@ export default function Ledger() {
                     const response = await fetch(`/api/getUsers?email=${email}`);
                     const result = await response.json();
                     if (result.users && result.users.length > 0) {
-                        const allOrders = result.users[0].totalOrders || [];
-                        const completedTrades = getCompletedTrades(allOrders);
-                        setTrades(completedTrades);
+                        const user = result.users[0];
+                        // Fallback to manual concat if totalOrders is missing or empty
+                        // Check if totalOrders exists and is array, if not or empty, try the others
+                        const allOrders = (user.totalOrders && user.totalOrders.length > 0)
+                            ? user.totalOrders
+                            : [...(user.buyOrders || []), ...(user.sellOrders || [])];
+
+                        console.log("Ledger - All Orders found:", allOrders.length);
+
+                        // Match orders to create trades (FIFO)
+                        const sortedOrders = allOrders
+                            .filter(o => {
+                                const status = (o.status || "").toLowerCase();
+                                return status === 'completed' || status === 'executed';
+                            })
+                            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+                        const positions = {}; // { Symbol: [open_orders] }
+                        const trades = [];
+
+                        sortedOrders.forEach(order => {
+                            const sym = order.symbol;
+                            if (!sym) return;
+
+                            const side = order.originalArray === 'buyOrders' ? 'BUY' : 'SELL';
+                            const quantity = parseFloat(order.quantity || 0);
+                            const price = parseFloat(order.entryPrice || order.price || 0);
+
+                            if (!positions[sym]) positions[sym] = [];
+
+                            // Check if we can match against opposite side
+                            if (positions[sym].length > 0 && positions[sym][0].side !== side) {
+                                let remainingQty = quantity;
+
+                                while (remainingQty > 0 && positions[sym].length > 0) {
+                                    const matchOrder = positions[sym][0];
+                                    const matchQty = Math.min(remainingQty, matchOrder.remainingQty);
+
+                                    // Determine Entry/Exit based on which was first
+                                    const isLong = matchOrder.side === 'BUY';
+                                    const entryPrice = matchOrder.price;
+                                    const exitPrice = price;
+
+                                    trades.push({
+                                        tradeId: `${matchOrder._id}-${order._id}`,
+                                        _id: matchOrder._id, // Use entry ID as main ID
+                                        symbol: sym,
+                                        instrument: sym,
+                                        quantity: matchQty,
+                                        entryPrice: entryPrice,
+                                        exitPrice: exitPrice,
+                                        side: isLong ? 'BUY' : 'SELL', // Trade direction
+                                        timestamp: order.timestamp, // Closing time
+                                        brokerage: ((matchOrder.brokerage || 20) / matchOrder.quantity * matchQty) + ((order.brokerage || 20) / order.quantity * matchQty),
+                                        charges: ((matchOrder.charges || 0) / matchOrder.quantity * matchQty) + ((order.charges || 0) / order.quantity * matchQty),
+                                        status: 'completed',
+                                        tradeStatus: 'COMPLETED',
+                                        date: new Date(order.timestamp).toLocaleDateString()
+                                    });
+
+                                    remainingQty -= matchQty;
+                                    matchOrder.remainingQty -= matchQty;
+
+                                    if (matchOrder.remainingQty <= 0.0001) {
+                                        positions[sym].shift(); // Fully closed
+                                    }
+                                }
+
+                                // If any quantity left from current order (and we ran out of matches), add to pile (flip side)
+                                if (remainingQty > 0.0001) {
+                                    positions[sym].push({
+                                        ...order,
+                                        side: side,
+                                        price: price,
+                                        quantity: quantity,
+                                        remainingQty: remainingQty
+                                    });
+                                }
+
+                            } else {
+                                // Same side or empty, add to positions
+                                positions[sym].push({
+                                    ...order,
+                                    side: side,
+                                    price: price,
+                                    quantity: quantity,
+                                    remainingQty: quantity
+                                });
+                            }
+                        });
+
+                        console.log("Ledger - Computed Trades:", trades);
+                        setTrades(trades);
                     } else {
-                        setTrades(mockCompletedTrades);
+                        // User found but no orders, or user not found - set empty to avoid misleading mock data if user expects real data
+                        // If you prefer mock data ONLY when user is not logged in:
+                        setTrades([]);
                     }
                 } else {
+                    // No email, keep as empty or mock
                     setTrades(mockCompletedTrades);
                 }
             } catch (error) {
@@ -265,8 +358,8 @@ export default function Ledger() {
                                                 <tr
                                                     key={index}
                                                     className={`border-b border-gray-100 ${entry.type === "BROKERAGE" || entry.type === "CHARGES"
-                                                            ? "bg-gray-50"
-                                                            : ""
+                                                        ? "bg-gray-50"
+                                                        : ""
                                                         }`}
                                                 >
                                                     <td className="p-3 text-sm text-gray-600">{entry.date}</td>

@@ -37,14 +37,6 @@ export default function ReportsPage() {
       color: "text-purple-600",
       bg: "bg-purple-50"
     },
-    {
-      name: "Brokerage Report",
-      path: "/user/reports/brokrage",
-      icon: Receipt,
-      desc: "Breakdown of all transaction costs including brokerage, taxes, and exchange charges.",
-      color: "text-amber-600",
-      bg: "bg-amber-50"
-    },
   ];
 
   return (
