@@ -1,6 +1,6 @@
 "use strict";
 
-const NorenRestApi = require("./lib/RestApi");
+const NorenRestApi = require("../lib/RestApi");
 const { authenticator } = require("otplib"); // OTP generator
 require('dotenv').config({ path: '../../.env' });
 

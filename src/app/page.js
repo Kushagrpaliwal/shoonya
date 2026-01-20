@@ -59,7 +59,7 @@ const LoginPage = () => {
           localStorage.setItem("TradingUserEmail", data.email);
           showAlert("Success", data.message, "success");
           setTimeout(() => {
-            router.push('/user');
+            router.push('/user/watchlist');
           }, 1500);
         } else {
           showAlert("Error", "Email not found in response.", "error");
@@ -113,7 +113,7 @@ const LoginPage = () => {
       <div className="flex min-h-screen items-center justify-center bg-zinc-100 p-4">
         <Card className="w-full max-w-md bg-white shadow-soft-lg border-0 rounded-2xl">
           <CardHeader className="space-y-1 pb-6">
-            <div className="flex flex-row items-center justify-center mb-8 gap-4">
+            {/* <div className="flex flex-row items-center justify-center mb-8 gap-4">
               <Image
                 src="/image.png"
                 width={56}
@@ -122,7 +122,7 @@ const LoginPage = () => {
                 className="h-14 w-auto"
               />
               <span className="text-3xl font-bold text-zinc-900 tracking-tight">UrbanExchange</span>
-            </div>
+            </div> */}
             <CardTitle className="text-2xl font-bold text-center text-zinc-900">
               Welcome back
             </CardTitle>

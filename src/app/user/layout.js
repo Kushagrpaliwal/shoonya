@@ -2,10 +2,20 @@
 import "../globals.css";
 import Sidebar, { SidebarProvider, MobileHeader, useSidebar } from "./components/Sidebar";
 import Image from "next/image";
+import { useState, useEffect } from 'react';
 
 // Inner layout that can use the sidebar context
 function LayoutContent({ children }) {
   const { toggleMobile } = useSidebar();
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    // defaults to empty, updates on mount
+    const storedEmail = localStorage.getItem("TradingUserEmail");
+    if (storedEmail) {
+      setEmail(storedEmail);
+    }
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-zinc-100 overflow-hidden">
@@ -41,15 +51,15 @@ function LayoutContent({ children }) {
           {/* Right side - User profile */}
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-semibold text-white">RKK</span>
-              <span className="text-xs text-zinc-400">qwertyuiop</span>
+              <span className="text-sm font-semibold text-white">User</span>
+              <span className="text-xs text-zinc-400">{email}</span>
             </div>
             <Image
               src="/profile.jpg"
               width={40}
               height={40}
               alt="User avatar"
-              className="rounded-full border-2 border-zinc-600"
+              className="rounded-full border-2 border-zinc-600 bg-white"
             />
           </div>
         </div>

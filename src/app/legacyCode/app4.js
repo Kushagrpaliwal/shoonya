@@ -1,8 +1,8 @@
 // Dropdown.js
 "use client";
 import { useState, useEffect } from "react";
-import { authenticator } from "otplib"; 
-import NorenRestApi from "./lib/RestApi"; 
+import { authenticator } from "otplib";
+import NorenRestApi from "../lib/RestApi";
 
 const mcxScripts = [
   "GOLD",

@@ -1,5 +1,5 @@
 // using the restapi for fetching the data
-const ShoonyaApi = require('./lib/RestApi');
+const ShoonyaApi = require('../lib/RestApi');
 const { authenticator } = require("otplib");
 require('dotenv').config({ path: '../../.env' });
 

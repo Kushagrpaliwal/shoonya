@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { authenticator } from "otplib";
-import NorenRestApi from "./lib/RestApi";
+import NorenRestApi from "../lib/RestApi";
 
 const instruments = [
   { exchange: "MCX", token: "433350" },

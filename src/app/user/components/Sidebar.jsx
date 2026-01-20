@@ -1,6 +1,7 @@
 "use client";
 import { useState, createContext, useContext } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -22,6 +23,13 @@ import {
   Receipt,
   Menu,
   X,
+  LineChart,
+  BookOpen,
+  ShieldAlert,
+  AlertTriangle,
+  ClipboardList,
+  Calendar,
+  Package,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -42,7 +50,7 @@ export const useSidebar = () => {
 const sidebarItems = [
   {
     name: "Dashboard",
-    path: "/user",
+    path: "/user/analytics",
     icon: LayoutDashboard
   },
   {
@@ -63,18 +71,6 @@ const sidebarItems = [
     links: [
       { name: "Trades", path: "/user/trading/option1", icon: BarChart2 },
       { name: "Trash", path: "/user/trading/option3", icon: Trash2 },
-      { name: "Positions", path: "/user/trading/option2", icon: TrendingUp },
-    ],
-  },
-  {
-    name: "Users",
-    path: "/user/users",
-    icon: Users,
-    dropdownKey: "users",
-    links: [
-      { name: "Customer", path: "/user/users/customer", icon: UserCircle },
-      { name: "Master", path: "/user/users/master", icon: Crown },
-      { name: "Broker", path: "/user/users/broker", icon: Briefcase },
     ],
   },
   {
@@ -83,7 +79,9 @@ const sidebarItems = [
     icon: Wallet,
     dropdownKey: "accounts",
     links: [
-      { name: "Ledger Report", path: "/user/accounts/ledgerreport", icon: Receipt },
+      { name: "Inventory", path: "/user/inventory", icon: Package },
+      { name: "Risk Monitor", path: "/user/risk", icon: ShieldAlert },
+      { name: "Mistake Tracker", path: "/user/mistakes", icon: AlertTriangle },
     ],
   },
   {
@@ -92,7 +90,9 @@ const sidebarItems = [
     icon: BarChart3,
     dropdownKey: "reports",
     links: [
-      { name: "Brokerage Report", path: "/user/reports/brokrage", icon: FileText },
+      { name: "Ledger", path: "/user/ledger", icon: ClipboardList },
+      { name: "Session Summary", path: "/user/session", icon: Calendar },
+      { name: "Brokerage", path: "/user/reports/brokrage", icon: Receipt },
     ],
   },
 ];

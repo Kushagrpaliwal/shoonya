@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { RefreshButton } from "@/components/ui/refresh-button";
+import {
+  BookOpen,
+  Search,
+  Filter,
+  SortAsc,
+  SortDesc,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  X,
+  Inbox
+} from "lucide-react";
 
 const Page = () => {
 
@@ -31,7 +44,8 @@ const Page = () => {
   const [tradeBefore, setTradeBefore] = useState('');
   const [market, setMarket] = useState('');
   const [script, setScript] = useState('');
-  const [orderType, setOrderType] = useState('');
+  const [orderType, setOrderType] = useState('All');
+  const [side, setSide] = useState('All');
   const [nextCleanup, setNextCleanup] = useState('');
 
   // Alert Modal State
@@ -140,7 +154,8 @@ const Page = () => {
     setTradeBefore('');
     setMarket('');
     setScript('');
-    setOrderType('');
+    setOrderType('All');
+    setSide('All');
   };
 
   useEffect(() => {
@@ -197,9 +212,12 @@ const Page = () => {
     const matchesTradeBefore = tradeBefore ? new Date(order.timestamp) <= new Date(tradeBefore) : true;
     const matchesMarket = market ? order.market?.toLowerCase() === market.toLowerCase() : true;
     const matchesScript = script ? order.symbol?.toLowerCase() === script.toLowerCase() : true;
-    const matchesOrderType = orderType ? order.type?.toLowerCase() === orderType.toLowerCase() : true;
+    const matchesOrderType = orderType && orderType !== 'All' ? order.type?.toLowerCase() === orderType.toLowerCase() : true;
+    const matchesSide = side && side !== 'All'
+      ? (side === 'Buy' ? order.originalArray === 'buyOrders' : order.originalArray === 'sellOrders')
+      : true;
 
-    return matchesSearchTerm && matchesPendingStatus && matchesExecutedStatus && matchesTradeAfter && matchesTradeBefore && matchesMarket && matchesScript && matchesOrderType;
+    return matchesSearchTerm && matchesPendingStatus && matchesExecutedStatus && matchesTradeAfter && matchesTradeBefore && matchesMarket && matchesScript && matchesOrderType && matchesSide;
 
   }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -322,7 +340,7 @@ const Page = () => {
           return newSet;
         });
 
-        showAlert('Executed', 'Order executed successfully!', 'success');
+        showAlert('Completed', 'Order completed successfully!', 'success');
       } else {
         console.error('Error executing order:', result.error);
         setExecutingOrders(prev => {
@@ -344,289 +362,347 @@ const Page = () => {
   };
 
   return (
-    <>
-      <div className="bg-gray-50 p-2 md:p-4 min-h-screen">
-        {/* Header */}
-        <Card className="mb-4 bg-white shadow-sm">
-          <CardContent className="p-3 md:p-4">
-            <div className="flex flex-col md:flex-row md:items-center gap-2">
-              <span className="font-bold text-lg md:text-xl text-gray-900">Trades</span>
-              <div className="marquee flex-1 overflow-hidden">
-                <span className="text-red-600 text-sm">
-                  Money involved. This is a Virtual Trading Application which has all
-                  the features to trade. This application is used for exchanging views
-                  on markets for India
-                </span>
-              </div>
+    <div className="bg-gray-50 min-h-screen p-4">
+      {/* Header */}
+      <Card className="bg-white shadow-sm mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-6 w-6 text-gray-700" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Trades Overview</h1>
+              <p className="text-sm text-gray-500">
+                Manage your active and completed trades
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Filters */}
-        <Card className="mb-4 bg-gray-800 shadow-lg">
-          <CardContent className="p-4">
-            <p className="text-white text-sm mb-3 italic opacity-80">
-              Note: Pending limit orders are automatically removed at 12am daily
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-              {/* Checkboxes */}
-              <div className="flex flex-col gap-2 col-span-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-gray-300"
-                    checked={showPendingOrders}
-                    onChange={() => setShowPendingOrders(!showPendingOrders)}
-                  />
-                  <span className="text-white text-sm">Pending Orders</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-gray-300"
-                    checked={showExecutedOrders}
-                    onChange={() => setShowExecutedOrders(!showExecutedOrders)}
-                  />
-                  <span className="text-white text-sm">Executed/Rejected</span>
-                </label>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-white text-sm">Trade After</Label>
-                <Input
-                  type="date"
-                  value={tradeAfter}
-                  onChange={(e) => setTradeAfter(e.target.value)}
-                  className="h-10 bg-white border-0"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-white text-sm">Trade Before</Label>
-                <Input
-                  type="date"
-                  value={tradeBefore}
-                  onChange={(e) => setTradeBefore(e.target.value)}
-                  className="h-10 bg-white border-0"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-white text-sm">Market</Label>
-                <Input
-                  type="text"
-                  placeholder="Market"
-                  value={market}
-                  onChange={(e) => setMarket(e.target.value)}
-                  className="h-10 bg-white border-0"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-white text-sm">Script</Label>
-                <Input
-                  type="text"
-                  placeholder="Script Name"
-                  value={script}
-                  onChange={(e) => setScript(e.target.value)}
-                  className="h-10 bg-white border-0"
-                />
-              </div>
-
-              <div className="flex items-end">
-                <Button
-                  onClick={resetfilters}
-                  className="h-10 bg-white text-gray-900 hover:bg-gray-100"
-                >
-                  Reset Filters
-                </Button>
-              </div>
+            <div className="ml-auto marquee flex-1 overflow-hidden max-w-xl hidden md:block">
+              <span className="text-red-600 text-sm">
+                Money involved. This is a Virtual Trading Application which has all
+                the features to trade. This application is used for exchanging views
+                on markets for India
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            <RefreshButton
+              onRefresh={async () => {
+                const email = localStorage.getItem('TradingUserEmail');
+                const response = await fetch(`/api/getUsers?email=${email}`);
+                const res = await response.json();
+                if (res.users && res.users.length > 0) {
+                  setTotalOrders(res.users[0].totalOrders || []);
+                }
+              }}
+              className="flex-shrink-0"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Table Section */}
-        <Card className="bg-gray-800 shadow-lg">
-          <CardContent className="p-4">
+      {/* Filters */}
+      <Card className="bg-gray-800 shadow-lg mb-6">
+        <CardContent className="p-4">
+          <p className="text-white text-sm mb-3 italic opacity-80 flex items-center gap-2">
+            <Inbox className="w-4 h-4" />
+            Note: Pending limit orders are automatically removed at 12am daily
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             {/* Search */}
-            <div className="mb-4">
+            <div className="lg:col-span-2">
+              <Label className="text-white text-sm mb-1 block">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search symbol, email..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-10 bg-white border-0 h-10"
+                />
+              </div>
+            </div>
+
+            {/* Date From */}
+            <div>
+              <Label className="text-white text-sm mb-1 block">Trade After</Label>
               <Input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search..."
-                className="max-w-sm h-11 bg-white border-0"
+                type="date"
+                value={tradeAfter}
+                onChange={(e) => setTradeAfter(e.target.value)}
+                className="bg-white border-0 h-10"
               />
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto rounded-lg">
-              <table className="w-full min-w-[1200px] bg-white">
+            {/* Date To */}
+            <div>
+              <Label className="text-white text-sm mb-1 block">Trade Before</Label>
+              <Input
+                type="date"
+                value={tradeBefore}
+                onChange={(e) => setTradeBefore(e.target.value)}
+                className="bg-white border-0 h-10"
+              />
+            </div>
+
+            {/* Market */}
+            <div>
+              <Label className="text-white text-sm mb-1 block">Market</Label>
+              <Input
+                type="text"
+                placeholder="Market"
+                value={market}
+                onChange={(e) => setMarket(e.target.value)}
+                className="h-10 bg-white border-0"
+              />
+            </div>
+
+            {/* Script */}
+            <div>
+              <Label className="text-white text-sm mb-1 block">Script</Label>
+              <Input
+                type="text"
+                placeholder="Script Name"
+                value={script}
+                onChange={(e) => setScript(e.target.value)}
+                className="h-10 bg-white border-0"
+              />
+            </div>
+
+            {/* Side Filter */}
+            <div>
+              <Label className="text-white text-sm mb-1 block">Side</Label>
+              <select
+                value={side}
+                onChange={(e) => setSide(e.target.value)}
+                className="w-full h-10 bg-white border-0 rounded-md px-3 text-sm"
+              >
+                <option value="All">All Sides</option>
+                <option value="Buy">Buy</option>
+                <option value="Sell">Sell</option>
+              </select>
+            </div>
+
+            {/* Order Type Filter */}
+            <div>
+              <Label className="text-white text-sm mb-1 block">Order Type</Label>
+              <select
+                value={orderType}
+                onChange={(e) => setOrderType(e.target.value)}
+                className="w-full h-10 bg-white border-0 rounded-md px-3 text-sm"
+              >
+                <option value="All">All Types</option>
+                <option value="market">Market</option>
+                <option value="limit">Limit</option>
+              </select>
+            </div>
+
+            {/* Order Type Checkboxes as Filters */}
+            <div className="lg:col-span-6 flex flex-wrap gap-4 pt-2 border-t border-gray-700 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer text-white text-sm hover:text-gray-200 transition-colors">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-gray-300 accent-blue-600"
+                  checked={showPendingOrders}
+                  onChange={() => setShowPendingOrders(!showPendingOrders)}
+                />
+                <span>Show Pending Orders</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-white text-sm hover:text-gray-200 transition-colors">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-gray-300 accent-blue-600"
+                  checked={showExecutedOrders}
+                  onChange={() => setShowExecutedOrders(!showExecutedOrders)}
+                />
+                <span>Show Executed/Rejected</span>
+              </label>
+
+              <Button
+                onClick={resetfilters}
+                variant="secondary"
+                size="sm"
+                className="ml-auto h-8"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Reset Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Trades Table */}
+      <Card className="bg-white shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-500">
+              Showing {filteredOrders.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
+            </p>
+          </div>
+
+          {currentOrders.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1200px]">
                 <thead>
-                  <tr className="bg-gray-900 text-white">
-                    <th className="p-3 text-left text-sm font-medium">#</th>
-                    <th className="p-3 text-left text-sm font-medium">Trade By</th>
-                    <th className="p-3 text-left text-sm font-medium">Time</th>
-                    <th className="p-3 text-left text-sm font-medium">Market</th>
-                    <th className="p-3 text-left text-sm font-medium">Symbol</th>
-                    <th className="p-3 text-center text-sm font-medium">Orders</th>
-                    <th className="p-3 text-center text-sm font-medium">Type</th>
-                    <th className="p-3 text-center text-sm font-medium">Lot</th>
-                    <th className="p-3 text-center text-sm font-medium">Qty</th>
-                    <th className="p-3 text-center text-sm font-medium">Price</th>
-                    <th className="p-3 text-center text-sm font-medium">Live Price</th>
-                    <th className="p-3 text-center text-sm font-medium">Status</th>
-                    <th className="p-3 text-center text-sm font-medium">Actions</th>
+                  <tr className="bg-gray-100">
+                    <th className="p-3 text-left text-sm font-medium text-gray-600">#</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-600">Time</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-600">Trade By</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-600">Market</th>
+                    <th className="p-3 text-left text-sm font-medium text-gray-600">Symbol</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-600">Side</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-600">Type</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-600">Lot</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-600">Qty</th>
+                    <th className="p-3 text-right text-sm font-medium text-gray-600">Price</th>
+                    <th className="p-3 text-right text-sm font-medium text-gray-600">Live Price</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-600">Status</th>
+                    <th className="p-3 text-center text-sm font-medium text-gray-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {currentOrders.length > 0 ? (
-                    currentOrders.map((order, index) => (
-                      <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="p-3 text-gray-700">{index + indexOfFirstItem + 1}</td>
-                        <td className="p-3 text-gray-700 text-sm">{order.email}</td>
-                        <td className="p-3 text-gray-600 text-sm">{new Date(order.timestamp).toLocaleString()}</td>
-                        <td className="p-3 text-gray-700">{order.market}</td>
-                        <td className="p-3 font-medium text-gray-900">{order.symbol}</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.originalArray === 'buyOrders'
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                            }`}>
-                            {order.originalArray === 'buyOrders' ? 'BUY' : 'SELL'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-center text-gray-600 text-sm">{order.type}</td>
-                        <td className="p-3 text-center text-gray-700">{order.lot}</td>
-                        <td className="p-3 text-center text-gray-700">{order.quantity}</td>
-                        <td className="p-3 text-center font-medium text-gray-900">₹{order.price}</td>
-                        <td className="p-3 text-center">
-                          {(() => {
-                            const liveDataItem = liveData.find(data =>
-                              data.tk === `${order.exchange}|${order.token}` ||
-                              data.tk === `${order.exchange}_${order.token}` ||
-                              data.ts === order.symbol
-                            );
+                  {currentOrders.map((order, index) => (
+                    <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="p-3 text-gray-500 text-sm">{index + indexOfFirstItem + 1}</td>
+                      <td className="p-3 text-gray-600 text-sm">{new Date(order.timestamp).toLocaleString()}</td>
+                      <td className="p-3 text-gray-700 text-sm">{order.email}</td>
+                      <td className="p-3 text-gray-700 text-sm">{order.market}</td>
+                      <td className="p-3 font-medium text-gray-900 text-sm">{order.symbol}</td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.originalArray === 'buyOrders'
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                          }`}>
+                          {order.originalArray === 'buyOrders' ? 'BUY' : 'SELL'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center text-gray-600 text-sm uppercase">{order.type}</td>
+                      <td className="p-3 text-center text-gray-700 text-sm">{order.lot}</td>
+                      <td className="p-3 text-center text-gray-700 text-sm">{order.quantity}</td>
+                      <td className="p-3 text-right font-medium text-gray-900 text-sm">₹{order.price}</td>
+                      <td className="p-3 text-right">
+                        {(() => {
+                          const liveDataItem = liveData.find(data =>
+                            data.tk === `${order.exchange}|${order.token}` ||
+                            data.tk === `${order.exchange}_${order.token}` ||
+                            data.ts === order.symbol
+                          );
 
-                            if (liveDataItem) {
-                              let livePrice = 0;
-                              const isLimitOrder = order.type === "limit" && order.status === "pending";
+                          if (liveDataItem) {
+                            let livePrice = 0;
+                            const isLimitOrder = order.type === "limit" && order.status === "pending";
 
-                              if (order.originalArray === 'buyOrders') {
-                                livePrice = liveDataItem.sp1 || liveDataItem.lp || 0;
-                              } else {
-                                livePrice = liveDataItem.bsp1 || liveDataItem.lp || 0;
-                              }
-
-                              if (livePrice > 0) {
-                                const isPriceMatch = isLimitOrder && (
-                                  (order.originalArray === 'buyOrders' && livePrice == order.price) ||
-                                  (order.originalArray === 'sellOrders' && livePrice == order.price)
-                                );
-
-                                if (isPriceMatch && order.status === 'pending' && !executingOrders.has(order._id)) {
-                                  hendaleExecuteOrder(order._id);
-                                }
-
-                                return (
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-semibold text-green-600">
-                                      ₹{livePrice}
-                                    </span>
-                                    {executingOrders.has(order._id) && (
-                                      <span className="text-xs text-orange-500">Executing...</span>
-                                    )}
-                                  </div>
-                                );
-                              }
+                            if (order.originalArray === 'buyOrders') {
+                              livePrice = liveDataItem.sp1 || liveDataItem.lp || 0;
+                            } else {
+                              livePrice = liveDataItem.bp1 || liveDataItem.lp || 0;
                             }
 
-                            return (
-                              <span className="text-gray-400">--</span>
-                            );
-                          })()}
-                        </td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : order.status === "completed"
-                                ? "bg-green-100 text-green-700"
-                                : order.status === "rejected"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-gray-100 text-gray-700"
-                            }`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRemoveOrder(order._id)}
-                              className="h-8 text-xs hover:bg-red-50 hover:text-red-600"
-                              title="Remove (move to trash)"
-                            >
-                              Remove
-                            </Button>
-                            <Button
-                              size="sm"
-                              disabled={order.status !== "pending"}
-                              onClick={() => handleCancelOrder(order._id)}
-                              className={`h-8 text-xs ${order.status === "pending"
-                                  ? "bg-red-500 hover:bg-red-600 text-white"
-                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                }`}
-                              title={order.status === "pending" ? "Cancel order" : "Only pending orders can be cancelled"}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="13" className="text-center p-8 text-gray-500">
-                        No data available in table
+                            if (livePrice > 0) {
+                              const isPriceMatch = isLimitOrder && (
+                                (order.originalArray === 'buyOrders' && livePrice <= order.price) ||
+                                (order.originalArray === 'sellOrders' && livePrice >= order.price)
+                              );
+
+                              if (isPriceMatch && order.status === 'pending' && !executingOrders.has(order._id)) {
+                                hendaleExecuteOrder(order._id);
+                              }
+
+                              return (
+                                <div className="flex flex-col items-end">
+                                  <span className="font-semibold text-green-600 text-sm">
+                                    ₹{livePrice}
+                                  </span>
+                                  {executingOrders.has(order._id) && (
+                                    <span className="text-[10px] text-orange-500 animate-pulse">Executing...</span>
+                                  )}
+                                </div>
+                              );
+                            }
+                          }
+
+                          return (
+                            <span className="text-gray-400 text-sm">--</span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === "pending"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : order.status === "completed"
+                            ? "bg-green-100 text-green-700"
+                            : order.status === "rejected"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRemoveOrder(order._id)}
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            title="Remove from Trash"
+                          >
+                            <Inbox className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={order.status !== "pending"}
+                            onClick={() => handleCancelOrder(order._id)}
+                            className={`h-8 w-8 p-0 ${order.status === "pending"
+                              ? "bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+                              : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                              }`}
+                            title={order.status === "pending" ? "Cancel order" : "Only pending orders can be cancelled"}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
-              <span className="text-white text-sm">
-                Showing {filteredOrders.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredOrders.length)} of {filteredOrders.length} entries
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handlePrevious}
-                  disabled={currentPage === 1}
-                  variant="secondary"
-                  className="h-10"
-                >
-                  Previous
-                </Button>
-                <Button
-                  onClick={handleNext}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  variant="secondary"
-                  className="h-10"
-                >
-                  Next
-                </Button>
-              </div>
+          ) : (
+            <div className="text-center py-12">
+              <Inbox className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No Orders Match Filters
+              </h3>
+              <Button onClick={resetfilters} variant="outline" className="mt-2">
+                Clear Filters
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+          {/* Pagination */}
+          {filteredOrders.length > 0 && (
+            <div className="flex justify-end mt-4 gap-2">
+              <Button
+                onClick={handlePrevious}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+              >
+                Previous
+              </Button>
+              <Button
+                onClick={handleNext}
+                disabled={currentPage === totalPages || totalPages === 0}
+                variant="outline"
+                size="sm"
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Alert Modal */}
       <AlertModal
@@ -636,7 +712,7 @@ const Page = () => {
         message={alertModal.message}
         variant={alertModal.variant}
       />
-    </>
+    </div>
   );
 }
 

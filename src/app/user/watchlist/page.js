@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,8 @@ const LiveMarketData = () => {
   const [limitPrice, setLimitPrice] = useState(0);
   const [highlightedCells, setHighlightedCells] = useState({});
   const previousLiveDataRef = useRef([]);
+  const [inventory, setInventory] = useState([]);
+  const [availableLots, setAvailableLots] = useState(0);
 
   // Alert Modal State
   const [alertModal, setAlertModal] = useState({
@@ -339,9 +342,42 @@ const LiveMarketData = () => {
     setFetchedData([]);
   };
 
+  // Fetch inventory for the user
+  const fetchInventory = async () => {
+    const email = localStorage.getItem('TradingUserEmail');
+    if (!email) return;
+
+    try {
+      const response = await fetch(`/api/getInventory?email=${email}`);
+      const result = await response.json();
+      if (response.ok) {
+        setInventory(result.inventory || []);
+      }
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+    }
+  };
+
+  // Fetch inventory on mount
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  // Get available lots for a symbol
+  const getAvailableLots = (symbol, exchange) => {
+    const inventoryItem = inventory.find(i =>
+      i.symbol === symbol && (i.exchange === exchange || i.market === exchange)
+    );
+    return inventoryItem?.lots || 0;
+  };
+
   const openmodalhandle = (data, type) => {
     setModalData(data);
     setismodal(true);
+
+    // Get available lots for this symbol
+    const lots = getAvailableLots(data.ts, data.e);
+    setAvailableLots(lots);
 
     if (type === 'ask') {
       setTradeDirection('buy');
@@ -366,6 +402,11 @@ const LiveMarketData = () => {
   };
 
   const sellinput = () => {
+    // Check if user has inventory for this symbol
+    if (availableLots <= 0) {
+      showAlert("No Inventory", `You don't own any lots of ${modalData?.ts}. Buy first before selling.`, "warning");
+      return;
+    }
     setTradeDirection("sell");
     setsell(true);
     setbuy(false);
@@ -400,9 +441,21 @@ const LiveMarketData = () => {
       return;
     }
 
+    // Validate sell order against available lots
+    if (tradeDirection === 'sell') {
+      if (availableLots <= 0) {
+        showAlert("No Inventory", `You don't own any lots of ${modalData?.ts}. Buy first before selling.`, "warning");
+        return;
+      }
+      if (Number(lotvalue) > availableLots) {
+        showAlert("Insufficient Lots", `Available: ${availableLots} lots. Requested: ${lotvalue} lots.`, "warning");
+        return;
+      }
+    }
+
     const selectedPrice = orderExecutionType === "Limit"
       ? Number(limitPrice)
-      : (buy ? modalData.bp1 : modalData.sp1);
+      : (buy ? modalData.sp1 : modalData.bp1);
 
     const quantity = calculateQuantity(modalData.ts, lotvalue);
 
@@ -417,7 +470,13 @@ const LiveMarketData = () => {
       symbol: modalData.ts,
       netprice: modalData.lp,
       token: modalData.tk,
-      exchange: modalData.e
+      token: modalData.tk,
+      exchange: modalData.e,
+      high: modalData.h,
+      low: modalData.l,
+      open: modalData.o,
+      close: modalData.c,
+      ltp: modalData.lp
     };
 
     try {
@@ -437,6 +496,9 @@ const LiveMarketData = () => {
       const result = await response.json();
       showAlert("Order Placed", "Order Placed Successfully", "success");
       console.log("Order placed successfully:", result.message);
+
+      // Refresh inventory after order
+      fetchInventory();
 
       // Reset form
       setLimitPrice(0);
@@ -540,15 +602,7 @@ const LiveMarketData = () => {
                 >
                   Add to Watchlist
                 </Button>
-                <Button
-                  onClick={() => window.location.reload()}
-                  variant="outline"
-                  className="h-11 bg-white text-gray-900 hover:bg-gray-100 border-0"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </Button>
+                <RefreshButton className="h-11 w-11" />
               </div>
             </div>
           </CardContent>
@@ -594,13 +648,13 @@ const LiveMarketData = () => {
                         {data.lp && data.c ? (((data.lp - data.c) / data.c) * 100).toFixed(2) : "N/A"}
                       </td>
                       <td
-                        className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(3) ? 'bg-green-100 border border-green-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} cursor-pointer hover:bg-green-50`}
+                        className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(3) ? 'bg-red-100 border border-red-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} cursor-pointer hover:bg-red-50`}
                         onClick={() => openmodalhandle(data, 'bid')}
                       >
                         {data.bp1 || "N/A"}
                       </td>
                       <td
-                        className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(4) ? 'bg-red-100 border border-red-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} cursor-pointer hover:bg-red-50`}
+                        className={`py-3 px-3 transition-colors duration-300 ${highlightedCells[data.tk]?.includes(4) ? 'bg-green-100 border border-green-300 text-gray-900' : 'bg-white text-gray-700 border border-transparent'} cursor-pointer hover:bg-green-50`}
                         onClick={() => openmodalhandle(data, 'ask')}
                       >
                         {data.sp1 || "N/A"}
@@ -683,6 +737,14 @@ const LiveMarketData = () => {
 
           {/* Order Form */}
           <div className="p-4 space-y-4">
+            {/* Available Lots Display */}
+            {availableLots > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                <span className="text-sm text-blue-800">Available to sell:</span>
+                <span className="font-bold text-blue-900">{availableLots} lots</span>
+              </div>
+            )}
+
             {/* Buy/Sell Toggle */}
             <div className="flex gap-2">
               <Button
@@ -698,14 +760,11 @@ const LiveMarketData = () => {
               </Button>
               <Button
                 type="button"
-                onClick={() => {
-                  setTradeDirection("sell");
-                  setsell(true);
-                  setbuy(false);
-                }}
-                className={`flex-1 h-12 font-medium ${sell ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                onClick={sellinput}
+                disabled={availableLots <= 0}
+                className={`flex-1 h-12 font-medium ${sell ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} ${availableLots <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                Sell
+                Sell {availableLots <= 0 ? '(No lots)' : ''}
               </Button>
             </div>
 

@@ -180,7 +180,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { authenticator } from "otplib";
-import NorenRestApi from "./lib/RestApi";
+import NorenRestApi from "../lib/RestApi";
 
 const LiveData = ({ watchlist }) => { // Accept watchlist as a prop
   const [liveData, setLiveData] = useState([]);

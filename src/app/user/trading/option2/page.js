@@ -1,5 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RefreshButton } from "@/components/ui/refresh-button";
 
 const PositionReport = () => {
   const [selectedFilter, setSelectedFilter] = useState("All");
@@ -37,176 +42,149 @@ const PositionReport = () => {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen p-4">
+    <div className="min-h-screen bg-zinc-50 p-4 lg:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center space-x-2 bg-white shadow-md rounded-lg p-3">
-        <h1 className="text-xl font-semibold">Position Report</h1>
-      </div>
+      <Card className="bg-white shadow-sm border-zinc-200">
+        <CardHeader className="py-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl font-bold text-zinc-900">Position Report</CardTitle>
+            <RefreshButton onRefresh={fetchusertransactions} />
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Filter Section */}
-      <div className="bg-gray-700 text-white p-3 mt-2 rounded-lg">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Radio Buttons */}
-          <div className="flex items-center gap-4">
-            {/* <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="filter"
-                value="All"
-                checked={selectedFilter === "All"}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-4 h-4"
-              />
-              <span>All</span>
-            </label> */}
-            {/* <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="filter"
-                value="Client Wise"
-                checked={selectedFilter === "Client Wise"}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-4 h-4"
-              />
-              <span>Client Wise</span>
-            </label> */}
-            {/* <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="filter"
-                value="Outstanding"
-                checked={selectedFilter === "Outstanding"}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-4 h-4"
-              />
-              <span>Outstanding</span>
-            </label> */}
-            {/* <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="filter"
-                value="Script Wise"
-                checked={selectedFilter === "Script Wise"}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="w-4 h-4"
-              />
-              <span>Script Wise</span>
-            </label> */}
-          </div>
-
-          {/* Input Fields */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex flex-col">
-              <label className="text-sm mb-1">Market</label>
-              <input
-                type="text"
-                placeholder="Market"
+      <Card className="bg-zinc-900 shadow-lg border-zinc-800">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="market" className="text-zinc-100 font-medium">Market</Label>
+              <Input
+                id="market"
+                placeholder="Enter market"
                 value={market}
                 onChange={(e) => setMarket(e.target.value)}
-                className="px-3 py-1 text-black rounded border"
+                className="h-11 bg-white border-0 focus-visible:ring-zinc-400 text-zinc-900"
               />
             </div>
-            <div className="flex flex-col">
-              <label className="text-sm mb-1">Script</label>
-              <input
-                type="text"
-                placeholder="Script Name"
+
+            <div className="space-y-2">
+              <Label htmlFor="script" className="text-zinc-100 font-medium">Script Name</Label>
+              <Input
+                id="script"
+                placeholder="Enter script name"
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
-                className="px-3 py-1 text-black rounded border"
+                className="h-11 bg-white border-0 focus-visible:ring-zinc-400 text-zinc-900"
               />
             </div>
-            <div className="flex flex-col">
-              <label className="text-sm mb-1">Client</label>
+
+            <div className="space-y-2">
+              <Label htmlFor="client" className="text-zinc-100 font-medium">Client</Label>
               <select
+                id="client"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
-                className="px-3 py-1 text-black rounded border"
+                className="w-full h-11 px-3 rounded-md bg-white border-0 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400"
               >
                 <option value="">Select Client</option>
                 <option value="client1">Client 1</option>
                 <option value="client2">Client 2</option>
               </select>
             </div>
-            <div className="flex flex-col">
-              <label className="text-sm mb-1">Expiry Date</label>
-              <input
+
+            <div className="space-y-2">
+              <Label htmlFor="expiry" className="text-zinc-100 font-medium">Expiry Date</Label>
+              <Input
+                id="expiry"
                 type="date"
-                placeholder="dd/mm/yyyy"
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
-                className="px-3 py-1 text-black rounded border"
+                className="h-11 bg-white border-0 focus-visible:ring-zinc-400 text-zinc-900 block"
               />
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2 mt-4">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
-            GET POSITION
-          </button>
-          <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm">
-            NSE ROLLOVER
-          </button>
-          <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
-            EXIT POSITION
-          </button>
-          <button className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm">
-            CLEAR FILTER
-          </button>
-        </div>
-      </div>
+          <div className="flex flex-wrap gap-3 mt-6 pt-2">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium h-10 px-6">
+              Get Position
+            </Button>
+            <Button variant="secondary" className="bg-zinc-700 hover:bg-zinc-600 text-white font-medium h-10 px-6">
+              NSE Rollover
+            </Button>
+            <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white font-medium h-10 px-6">
+              Exit Position
+            </Button>
+            <Button variant="outline" className="bg-transparent border-zinc-600 text-zinc-100 hover:bg-zinc-800 hover:text-white font-medium h-10 px-6">
+              Clear Filter
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Data Table Area */}
-      <div className="py-2 ">
-        <table className="w-full border rounded bg-gray-50 text-black">
-          <thead className="bg-gray-200">
-            <tr className="text-sm font-bold">
-              {positionsTitles.map((title, index) => (
-                <th className="px-4 py-2 text-left" key={title.id}>
-                  {title.text}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {user?.map((item, index) => {
-             const totalBuyOrders = item.orders.filter(order => order.originalArray === "buyOrders").length;
-             const totalSellOrders = item.orders.filter(order => order.originalArray === "sellOrders").length;
-             const client = item.orders[0].email; 
-             const exchange = item.orders[0].market;
-             const totalbuyquantity = item.orders.filter(order => order.originalArray === "buyOrders").reduce((sum,order)=> sum + order.quantity,0)
-             const totalsellquantity = item.orders.filter(order => order.originalArray === "sellOrders").reduce((sum,order)=> sum + order.quantity,0)
-             const totalbuylot = item.orders.filter(order => order.originalArray === "buyOrders").reduce((sum,order)=> sum + order.lot,0)
-             const totalselllot = item.orders.filter(order => order.originalArray === "sellOrders").reduce((sum,order)=> sum + order.lot,0)
-             const TotalBuyPrice = item.orders.filter(order => order.originalArray === "buyOrders").reduce((sum,order)=> sum + order.price,0);
-             const TotalSellPrice = item.orders.filter(order => order.originalArray === "sellOrders").reduce((sum,order)=> sum + order.price,0);
-             const buyAvgPrice = TotalBuyPrice / totalBuyOrders;
-             const sellAvgPrice = TotalSellPrice / totalSellOrders;
-             const netLotQuantity = totalbuyquantity - totalsellquantity;
-             const netLot = totalbuylot - totalselllot ;
-             const bea = (((buyAvgPrice * totalbuyquantity) - (sellAvgPrice * totalsellquantity))/netLotQuantity)
+      <Card className="shadow-sm border-zinc-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-zinc-800 text-white uppercase text-xs tracking-wider">
+              <tr>
+                {positionsTitles.map((title) => (
+                  <th className="px-6 py-4 font-semibold whitespace-nowrap" key={title.id}>
+                    {title.text}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {user?.map((item, index) => {
+                const totalBuyOrders = item.orders.filter(order => order.originalArray === "buyOrders").length;
+                const totalSellOrders = item.orders.filter(order => order.originalArray === "sellOrders").length;
+                const client = item.orders[0].email;
+                const exchange = item.orders[0].market;
+                const totalbuyquantity = item.orders.filter(order => order.originalArray === "buyOrders").reduce((sum, order) => sum + order.quantity, 0);
+                const totalsellquantity = item.orders.filter(order => order.originalArray === "sellOrders").reduce((sum, order) => sum + order.quantity, 0);
+                const totalbuylot = item.orders.filter(order => order.originalArray === "buyOrders").reduce((sum, order) => sum + order.lot, 0);
+                const totalselllot = item.orders.filter(order => order.originalArray === "sellOrders").reduce((sum, order) => sum + order.lot, 0);
+                const TotalBuyPrice = item.orders.filter(order => order.originalArray === "buyOrders").reduce((sum, order) => sum + order.price, 0);
+                const TotalSellPrice = item.orders.filter(order => order.originalArray === "sellOrders").reduce((sum, order) => sum + order.price, 0);
+                const buyAvgPrice = totalBuyOrders > 0 ? TotalBuyPrice / totalBuyOrders : 0;
+                const sellAvgPrice = totalSellOrders > 0 ? TotalSellPrice / totalSellOrders : 0;
+                const netLotQuantity = totalbuyquantity - totalsellquantity;
+                const netLot = totalbuylot - totalselllot;
+                const bea = netLotQuantity !== 0 ? (((buyAvgPrice * totalbuyquantity) - (sellAvgPrice * totalsellquantity)) / netLotQuantity) : 0;
 
-              return(
-               <tr className="text-sm border-b bg-white" key={item.symbol}>
-                 <td className="px-4 py-2">{exchange || "N/A"}</td>
-                 <td className="px-4 py-2">{client || "N/A"}</td>
-                 <td className="px-4 py-2">{item.symbol || "N/A"}</td>
-                 <td className="px-4 py-2">{totalbuyquantity || 0}</td>
-                 <td className="px-4 py-2">{buyAvgPrice.toFixed(2) === "NaN" ? 0 : buyAvgPrice.toFixed(2) }</td>
-                 <td className="px-4 py-2">{totalsellquantity || 0}</td>
-                 <td className="px-4 py-2">{sellAvgPrice.toFixed(2) === "NaN" ? 0 : sellAvgPrice.toFixed(2) }</td>
-                 <td className="px-4 py-2">{netLotQuantity || 0}({ netLot || 0})</td>
-                 <td className="px-4 py-2">{bea.toFixed(2) === "NaN" ? 0 : bea.toFixed(2)}</td>
-                 <td className="px-4 py-2">{item.cr || 0}</td>
-                 <td className="px-4 py-2">{item.mtmClose || 0}</td>
-               </tr>
-               )
-            })}
-          </tbody>
-        </table>
-      </div>
+                return (
+                  <tr className="bg-white hover:bg-zinc-50 transition-colors" key={item.symbol || index}>
+                    <td className="px-6 py-4 font-medium text-zinc-900 border-none">{exchange || "N/A"}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{client || "N/A"}</td>
+                    <td className="px-6 py-4 font-medium text-zinc-900 border-none">{item.symbol || "N/A"}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{totalbuyquantity || 0}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{buyAvgPrice.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{totalsellquantity || 0}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{sellAvgPrice.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">
+                      <span className={netLotQuantity >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                        {netLotQuantity || 0}
+                      </span>
+                      <span className="text-zinc-500 ml-1">({netLot || 0})</span>
+                    </td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{bea.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{item.cr || 0}</td>
+                    <td className="px-6 py-4 text-zinc-700 border-none">{item.mtmClose || 0}</td>
+                  </tr>
+                );
+              })}
+              {(!user || user.length === 0) && (
+                <tr>
+                  <td colSpan={positionsTitles.length} className="px-6 py-8 text-center text-zinc-500">
+                    No positions found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 };
