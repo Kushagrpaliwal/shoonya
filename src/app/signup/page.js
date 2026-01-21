@@ -81,16 +81,16 @@ const SignupPage = () => {
             <div className="flex min-h-screen items-center justify-center bg-zinc-100 p-4">
                 <Card className="w-full max-w-md bg-white shadow-soft-lg border-0 rounded-2xl">
                     <CardHeader className="space-y-1 pb-6">
-                        {/* <div className="flex flex-row items-center justify-center mb-8 gap-4">
+                        <div className="flex flex-row items-center justify-center mb-8 gap-4">
                             <Image
                                 src="/image.png"
                                 width={56}
                                 height={56}
                                 alt="UrbanExchange Logo"
-                                className="h-14 w-auto"
+                                className="h-14 w-auto rounded-xl"
                             />
                             <span className="text-3xl font-bold text-zinc-900 tracking-tight">UrbanExchange</span>
-                        </div> */}
+                        </div>
                         <CardTitle className="text-2xl font-bold text-center text-zinc-900">
                             Create an account
                         </CardTitle>
@@ -112,7 +112,7 @@ const SignupPage = () => {
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
                                     disabled={isLoading}
-                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-400 rounded-xl"
+                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-primary focus:ring-primary rounded-xl"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -127,7 +127,7 @@ const SignupPage = () => {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     disabled={isLoading}
-                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-400 rounded-xl"
+                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-primary focus:ring-primary rounded-xl"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -142,12 +142,12 @@ const SignupPage = () => {
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required
                                     disabled={isLoading}
-                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-zinc-400 focus:ring-zinc-400 rounded-xl"
+                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-primary focus:ring-primary rounded-xl"
                                 />
                             </div>
                             <Button
                                 type="submit"
-                                className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white font-medium transition-all duration-200 rounded-xl shadow-lg hover:shadow-xl"
+                                className="w-full h-12 btn-primary font-medium transition-all duration-200 rounded-xl shadow-lg hover:shadow-xl"
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
